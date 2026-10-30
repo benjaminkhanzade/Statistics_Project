@@ -1,0 +1,426 @@
+{
+  "project": "NACC UDS + MRI Phase 1 descriptive analysis",
+  "generated_by": "src/phase1_analysis.py",
+  "files": {
+    "UDS": "data/udslong_imputed.csv",
+    "MRI": "data/mriscanclean.csv",
+    "adjacency": "data/combined_adjacency_matrix.csv"
+  },
+  "design": {
+    "analysis_unit": "unique participant (NACCID)",
+    "study_type": "observational clinical/research cohort; supplied subset; not population-representative",
+    "visits": "one row per unique NACCID in each supplied file; encounter dates and IDs absent, so number/timing of actual visits and MRI-to-UDS temporal matching cannot be determined",
+    "collection_period": "not provided in local files",
+    "receipt_date": "not provided",
+    "imputation": "UDS filename says imputed; method, variables, and original missingness mask were not supplied"
+  },
+  "linkage": {
+    "UDS_rows": 1237,
+    "MRI_rows": 1237,
+    "unique_UDS_NACCID": 1237,
+    "unique_MRI_NACCID": 1237,
+    "common_participants": 1237,
+    "unmatched_UDS": 0,
+    "unmatched_MRI": 0,
+    "duplicate_UDS_ID_rows": 0,
+    "duplicate_MRI_ID_rows": 0,
+    "NACCUDSD_disagreements": 0,
+    "participants_with_MRI_entorhinal_thickness": 1237,
+    "participants_without_valid_MRI_entorhinal_thickness": 0,
+    "participants_with_both_MRI_and_UDS_valid_main_variables": 1228
+  },
+  "file_quality": {
+    "UDS_dimensions": [
+      1237,
+      180
+    ],
+    "MRI_dimensions": [
+      1237,
+      126
+    ],
+    "UDS_blank_cells": 0,
+    "MRI_blank_cells": 0,
+    "MOCATOTS_nonanalytic_values": {
+      "39.4": 2,
+      "38.8": 1,
+      "34.2": 1,
+      "88.0": 4,
+      "30.8": 1
+    },
+    "MOCATOTS_valid_fractional_n": 244,
+    "MOCATOTS_valid_integer_n": 984,
+    "MOCATOTS_integer_sensitivity_summary": {
+      "n": 984,
+      "mean": 24.028455284552845,
+      "sd": 4.739308066390187,
+      "min": 0.0,
+      "q1": 22.0,
+      "median": 25.0,
+      "q3": 27.0,
+      "iqr": 5.0,
+      "max": 30.0
+    },
+    "EDUC_code_99_n": 2,
+    "MRI_measure_audit": {
+      "measures": 124,
+      "empty_cells": 0,
+      "nonpositive_volume_cells": [
+        {
+          "variable": "LH_ENTORHINAL_GVOL",
+          "count_nonpositive": 1
+        },
+        {
+          "variable": "LH_POSTERIORCINGULATE_GVOL",
+          "count_nonpositive": 1
+        }
+      ]
+    },
+    "NACCUDSD_matches_all_linked_rows": true,
+    "CDRSUM_equals_six_domain_sum": true
+  },
+  "summary_statistics": {
+    "NACCAGE": {
+      "n": 1237,
+      "mean": 68.19240097008893,
+      "sd": 8.03905357224809,
+      "min": 41.0,
+      "q1": 63.0,
+      "median": 68.0,
+      "q3": 74.0,
+      "iqr": 11.0,
+      "max": 91.0
+    },
+    "EDUC_years": {
+      "n": 1235,
+      "mean": 16.25748987854251,
+      "sd": 2.7194774706978713,
+      "min": 0.0,
+      "q1": 14.0,
+      "median": 16.0,
+      "q3": 18.0,
+      "iqr": 4.0,
+      "max": 25.0
+    },
+    "MOCATOTS_valid_0_30": {
+      "n": 1228,
+      "mean": 24.39299674267101,
+      "sd": 4.4248225296498935,
+      "min": 0.0,
+      "q1": 23.0,
+      "median": 25.4,
+      "q3": 27.0,
+      "iqr": 4.0,
+      "max": 30.0
+    },
+    "CDRSUM": {
+      "n": 1237,
+      "mean": 0.8221503637833468,
+      "sd": 1.7230056432374514,
+      "min": 0.0,
+      "q1": 0.0,
+      "median": 0.0,
+      "q3": 1.0,
+      "iqr": 1.0,
+      "max": 15.0
+    },
+    "ENTORHINAL_BILATERAL_AVGTH_mm": {
+      "n": 1237,
+      "mean": 3.0137627324171383,
+      "sd": 0.3560963932305632,
+      "min": 1.214,
+      "q1": 2.8025,
+      "median": 3.0575,
+      "q3": 3.2515,
+      "iqr": 0.44899999999999984,
+      "max": 3.925
+    },
+    "LH_ENTORHINAL_AVGTH_mm": {
+      "n": 1237,
+      "mean": 2.9697987065481004,
+      "sd": 0.3841475146451352,
+      "min": 0.878,
+      "q1": 2.763,
+      "median": 3.021,
+      "q3": 3.228,
+      "iqr": 0.4650000000000003,
+      "max": 3.979
+    },
+    "RH_ENTORHINAL_AVGTH_mm": {
+      "n": 1237,
+      "mean": 3.0577267582861762,
+      "sd": 0.40126413679670864,
+      "min": 0.729,
+      "q1": 2.852,
+      "median": 3.097,
+      "q3": 3.318,
+      "iqr": 0.4660000000000002,
+      "max": 3.967
+    }
+  },
+  "categorical_frequencies": {
+    "SEX": [
+      {
+        "code": "1",
+        "label": "Male",
+        "n": 497,
+        "percent": 40.177849636216656
+      },
+      {
+        "code": "2",
+        "label": "Female",
+        "n": 740,
+        "percent": 59.822150363783344
+      }
+    ],
+    "NACCUDSD": [
+      {
+        "code": "1",
+        "label": "Normal cognition",
+        "n": 847,
+        "percent": 68.47210994341148
+      },
+      {
+        "code": "2",
+        "label": "Impaired, not MCI",
+        "n": 7,
+        "percent": 0.5658852061438965
+      },
+      {
+        "code": "3",
+        "label": "MCI",
+        "n": 252,
+        "percent": 20.371867421180276
+      },
+      {
+        "code": "4",
+        "label": "Dementia",
+        "n": 131,
+        "percent": 10.590137429264349
+      }
+    ],
+    "CDRGLOB": [
+      {
+        "code": "0.0",
+        "label": "No impairment",
+        "n": 800,
+        "percent": 64.6725949878739
+      },
+      {
+        "code": "0.5",
+        "label": "Questionable",
+        "n": 368,
+        "percent": 29.74939369442199
+      },
+      {
+        "code": "1.0",
+        "label": "Mild",
+        "n": 60,
+        "percent": 4.8504446240905414
+      },
+      {
+        "code": "2.0",
+        "label": "Moderate",
+        "n": 9,
+        "percent": 0.7275666936135813
+      }
+    ]
+  },
+  "by_NACCUDSD": {
+    "1": {
+      "label": "Normal cognition",
+      "n": 847,
+      "MOCATOTS": {
+        "n": 842,
+        "mean": 26.174109263657954,
+        "sd": 2.364611162034721,
+        "min": 10.0,
+        "q1": 25.0,
+        "median": 26.2,
+        "q3": 28.0,
+        "iqr": 3.0,
+        "max": 30.0
+      },
+      "ENTORHINAL_BILATERAL_AVGTH_mm": {
+        "n": 847,
+        "mean": 3.0888990554899647,
+        "sd": 0.3035511008488192,
+        "min": 1.214,
+        "q1": 2.92575,
+        "median": 3.1029999999999998,
+        "q3": 3.2952500000000002,
+        "iqr": 0.3695000000000004,
+        "max": 3.8579999999999997
+      }
+    },
+    "2": {
+      "label": "Impaired, not MCI",
+      "n": 7,
+      "MOCATOTS": {
+        "n": 7,
+        "mean": 26.25714285714286,
+        "sd": 2.6550939361016606,
+        "min": 21.0,
+        "q1": 25.8,
+        "median": 26.8,
+        "q3": 27.7,
+        "iqr": 1.8999999999999986,
+        "max": 29.0
+      },
+      "ENTORHINAL_BILATERAL_AVGTH_mm": {
+        "n": 7,
+        "mean": 3.243,
+        "sd": 0.18223085176043421,
+        "min": 2.997,
+        "q1": 3.1319999999999997,
+        "median": 3.188,
+        "q3": 3.3685,
+        "iqr": 0.23650000000000038,
+        "max": 3.515
+      }
+    },
+    "3": {
+      "label": "MCI",
+      "n": 252,
+      "MOCATOTS": {
+        "n": 251,
+        "mean": 22.40159362549801,
+        "sd": 3.3766725411563385,
+        "min": 10.0,
+        "q1": 20.0,
+        "median": 23.0,
+        "q3": 25.0,
+        "iqr": 5.0,
+        "max": 30.0
+      },
+      "ENTORHINAL_BILATERAL_AVGTH_mm": {
+        "n": 252,
+        "mean": 2.908071428571428,
+        "sd": 0.41329275489915657,
+        "min": 1.2355,
+        "q1": 2.6862500000000002,
+        "median": 2.9655,
+        "q3": 3.1866250000000003,
+        "iqr": 0.500375,
+        "max": 3.925
+      }
+    },
+    "4": {
+      "label": "Dementia",
+      "n": 131,
+      "MOCATOTS": {
+        "n": 128,
+        "mean": 16.4796875,
+        "sd": 6.097700087595955,
+        "min": 0.0,
+        "q1": 13.0,
+        "median": 17.0,
+        "q3": 21.0,
+        "iqr": 8.0,
+        "max": 30.0
+      },
+      "ENTORHINAL_BILATERAL_AVGTH_mm": {
+        "n": 131,
+        "mean": 2.719022900763359,
+        "sd": 0.35474591591184845,
+        "min": 1.7465000000000002,
+        "q1": 2.461,
+        "median": 2.6905,
+        "q3": 2.9450000000000003,
+        "iqr": 0.48400000000000043,
+        "max": 3.5324999999999998
+      }
+    }
+  },
+  "missingness": [
+    {
+      "variable": "NACCAGE",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    },
+    {
+      "variable": "EDUC",
+      "n_valid": 1235,
+      "n_unavailable": 2,
+      "percent_unavailable": 0.16168148746968472
+    },
+    {
+      "variable": "MOCATOTS",
+      "n_valid": 1228,
+      "n_unavailable": 9,
+      "percent_unavailable": 0.7275666936135813
+    },
+    {
+      "variable": "NACCUDSD",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    },
+    {
+      "variable": "CDRGLOB",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    },
+    {
+      "variable": "CDRSUM",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    },
+    {
+      "variable": "LH_ENTORHINAL_AVGTH",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    },
+    {
+      "variable": "RH_ENTORHINAL_AVGTH",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    },
+    {
+      "variable": "LH_ENTORHINAL_GVOL",
+      "n_valid": 1236,
+      "n_unavailable": 1,
+      "percent_unavailable": 0.08084074373484236
+    },
+    {
+      "variable": "RH_ENTORHINAL_GVOL",
+      "n_valid": 1237,
+      "n_unavailable": 0,
+      "percent_unavailable": 0.0
+    }
+  ],
+  "MRI_availability_comparison": {
+    "has_MRI_n": 1237,
+    "no_valid_MRI_n": 0,
+    "comparison_estimable": false,
+    "reason": "All linked participants have valid bilateral entorhinal thickness; a with/without MRI comparison has no contrast group."
+  },
+  "adjacency_file": {
+    "n_regions": 62,
+    "row_column_labels_match": true,
+    "symmetric": true,
+    "diagonal_ones": 62,
+    "undirected_offdiagonal_edges": 232,
+    "cross_hemisphere_edges": 0,
+    "connected_component_sizes": [
+      31,
+      30,
+      1
+    ]
+  },
+  "figure_files": [
+    "figures/phase1/01_age_distribution.svg",
+    "figures/phase1/02_moca_distribution.svg",
+    "figures/phase1/03_entorhinal_distribution.svg",
+    "figures/phase1/04_cognitive_status.svg",
+    "figures/phase1/05_sex_distribution.svg",
+    "figures/phase1/06_moca_by_status.svg",
+    "figures/phase1/07_thickness_by_status.svg",
+    "figures/phase1/08_moca_thickness_scatter.svg",
+    "figures/phase1/09_linkage.svg"
+  ]
+}

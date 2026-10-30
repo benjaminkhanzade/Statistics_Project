@@ -1,2 +1,6 @@
-
-kjndsj
+# Reproducible descriptive analysis uses Python standard library only.
+# For PDF generation:
+reportlab>=4.2,<6
+arabic-reshaper>=3.0,<4
+python-bidi>=0.6,<1
+pypdf>=5,<7
