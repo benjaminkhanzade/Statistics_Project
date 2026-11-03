@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="450.0" y="38" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#18324b">Record linkage across the two modalities</text>
+<text x="450.0" y="64" text-anchor="middle" font-family="Arial" font-size="13" fill="#64748b">Counts in the supplied subset</text>
+<line x1="115" y1="92.0" x2="865" y2="92.0" stroke="#e5eaf0"/>
+<text x="103" y="96.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">1237</text>
+<line x1="115" y1="167.8" x2="865" y2="167.8" stroke="#e5eaf0"/>
+<text x="103" y="171.8" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">928</text>
+<line x1="115" y1="243.5" x2="865" y2="243.5" stroke="#e5eaf0"/>
+<text x="103" y="247.5" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">618</text>
+<line x1="115" y1="319.2" x2="865" y2="319.2" stroke="#e5eaf0"/>
+<text x="103" y="323.2" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">309</text>
+<line x1="115" y1="395.0" x2="865" y2="395.0" stroke="#e5eaf0"/>
+<text x="103" y="399.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">0</text>
+<rect x="162.5" y="395.0" width="155.0" height="0.0" rx="4" fill="#247ba0"/>
+<text x="240.0" y="418" text-anchor="middle" font-family="Arial" font-size="12" fill="#334155">UDS only</text>
+<text x="240.0" y="386.0" text-anchor="middle" font-family="Arial" font-size="12" fill="#334155">0</text>
+<rect x="412.5" y="395.0" width="155.0" height="0.0" rx="4" fill="#247ba0"/>
+<text x="490.0" y="418" text-anchor="middle" font-family="Arial" font-size="12" fill="#334155">MRI only</text>
+<text x="490.0" y="386.0" text-anchor="middle" font-family="Arial" font-size="12" fill="#334155">0</text>
+<rect x="662.5" y="92.0" width="155.0" height="303.0" rx="4" fill="#247ba0"/>
+<text x="740.0" y="418" text-anchor="middle" font-family="Arial" font-size="12" fill="#334155">Both linked</text>
+<text x="740.0" y="83.0" text-anchor="middle" font-family="Arial" font-size="12" fill="#334155">1237</text>
+<line x1="115" y1="395" x2="865" y2="395" stroke="#334155"/>
+<text x="450.0" y="485" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">Category</text>
+<text transform="translate(27,260.0) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">Participants</text>
+</svg>
