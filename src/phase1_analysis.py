@@ -46,8 +46,12 @@ def summary(xs):
     if not xs:
         return {"n": 0}
     q1, med, q3 = quantile(xs, .25), quantile(xs, .5), quantile(xs, .75)
-    return {"n": len(xs), "mean": statistics.fmean(xs),
-            "sd": statistics.stdev(xs) if len(xs) > 1 else 0.0,
+    mean = statistics.fmean(xs)
+    sd = statistics.stdev(xs) if len(xs) > 1 else 0.0
+    skew = (len(xs) * sum((x-mean)**3 for x in xs) /
+            ((len(xs)-1)*(len(xs)-2)*sd**3)) if len(xs)>2 and sd else 0.0
+    return {"n": len(xs), "mean": mean, "skewness": skew,
+            "sd": sd,
             "min": min(xs), "q1": q1, "median": med, "q3": q3,
             "iqr": q3-q1, "max": max(xs)}
 
@@ -137,7 +141,7 @@ def chart_box(groups, title, path, ylabel):
     path.write_text("\n".join(a), encoding="utf-8")
 
 
-def chart_scatter(points, title, path):
+def chart_scatter(points, title, path, xlabel, ylabel):
     W,H=900,560; L,R,T,B=90,35,92,85
     xs=[p[0] for p in points]; ys=[p[1] for p in points]
     x0,x1=min(xs),max(xs); y0,y1=min(ys),max(ys); dx=x1-x0 or 1; dy=y1-y0 or 1
@@ -148,12 +152,35 @@ def chart_scatter(points, title, path):
               f'<text x="{x:.1f}" y="{T+ph+22}" text-anchor="middle" font-family="Arial" font-size="12" fill="#526171">{x0+dx*t/4:.1f}</text>',
               f'<line x1="{L}" y1="{y:.1f}" x2="{L+pw}" y2="{y:.1f}" stroke="#e5eaf0"/>',
               f'<text x="{L-12}" y="{y+4:.1f}" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">{y1-dy*t/4:.2f}</text>']
+    mx,my=statistics.mean(xs),statistics.mean(ys)
+    slope=sum((x-mx)*(y-my) for x,y in points)/sum((x-mx)**2 for x in xs) if len(xs)>1 and sum((x-mx)**2 for x in xs) else 0
+    intercept=my-slope*mx
+    tx0=L; ty0=T+ph*(y1-(intercept+slope*x0))/dy
+    tx1=L+pw; ty1=T+ph*(y1-(intercept+slope*x1))/dy
+    a.append(f'<line x1="{tx0:.1f}" y1="{ty0:.1f}" x2="{tx1:.1f}" y2="{ty1:.1f}" stroke="#d1495b" stroke-width="3"/>')
     for x,y in points:
         cx=L+pw*(x-x0)/dx; cy=T+ph*(y1-y)/dy
         a.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3.2" fill="#247ba0" fill-opacity="0.38"/>')
-    a += [f'<text x="{W/2}" y="{H-22}" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">Montreal Cognitive Assessment (MOCATOTS; supplied score)</text>',
-          f'<text transform="translate(27,{H/2}) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">Bilateral entorhinal thickness (mm)</text>', '</svg>']
+    a += [f'<text x="{W/2}" y="{H-22}" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">{escape(xlabel)}</text>',
+          f'<text transform="translate(27,{H/2}) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">{escape(ylabel)}</text>', '</svg>']
     path.write_text("\n".join(a), encoding="utf-8")
+
+
+def chart_heatmap(labels, matrix, path):
+    W=900; cell=112; L=275; T=115; H=T+cell*len(labels)+55
+    a=svg_base("Pearson correlation matrix","Pairwise complete observations; descriptive, unadjusted correlations",W,H)
+    short=["MoCA","Age","Education","Entorhinal thickness","Entorhinal volume"]
+    for i,row in enumerate(matrix):
+        a.append(f'<text x="{L-12}" y="{T+i*cell+cell/2+5}" text-anchor="end" font-family="Arial" font-size="13" fill="#334155">{escape(short[i])}</text>')
+        for j,v in enumerate(row):
+            x=L+j*cell; y=T+i*cell
+            strength=abs(v or 0); base=int(248-135*strength)
+            color=(f'#{248:02x}{base:02x}{base:02x}' if (v or 0)>=0 else f'#{base:02x}{base:02x}{248:02x}')
+            a.append(f'<rect x="{x}" y="{y}" width="{cell}" height="{cell}" fill="{color}" stroke="white" stroke-width="3"/>')
+            a.append(f'<text x="{x+cell/2}" y="{y+cell/2+5}" text-anchor="middle" font-family="Arial" font-size="16" fill="#18324b">{"NA" if v is None else f"{v:.2f}"}</text>')
+    for j,label in enumerate(short):
+        a.append(f'<text transform="translate({L+j*cell+cell/2},{T-12}) rotate(-35)" text-anchor="start" font-family="Arial" font-size="12" fill="#334155">{escape(label)}</text>')
+    a.append('</svg>'); path.write_text("\n".join(a),encoding="utf-8")
 
 
 def write_csv(path, rows, fields):
@@ -163,6 +190,10 @@ def write_csv(path, rows, fields):
 
 def main():
     OUT.mkdir(parents=True,exist_ok=True); FIG.mkdir(parents=True,exist_ok=True)
+    # Figures here are fully derived outputs; clear old phase-one plots so obsolete
+    # versions cannot be mistaken for the current question.
+    for old in FIG.glob("*.svg"):
+        old.unlink()
     uds=load_csv(DATA/"udslong_imputed.csv"); mri=load_csv(DATA/"mriscanclean.csv")
     ids_u=[r["NACCID"] for r in uds]; ids_m=[r["NACCID"] for r in mri]
     map_u={r["NACCID"]:r for r in uds}; map_m={r["NACCID"]:r for r in mri}
@@ -177,11 +208,17 @@ def main():
         r["ENTORHINAL_BILATERAL_AVGTH"]=(l+rh)/2 if l is not None and rh is not None and l>0 and rh>0 else None
         records.append(r)
 
+    linked_n=len(records)
+    records=[r for r in records if r.get("NACCAGE") is not None and r["NACCAGE"]>=65]
     age=[r.get("NACCAGE") for r in records]
     educ=[r.get("EDUC") if r.get("EDUC")!=99 else None for r in records]
     moca_raw=[r.get("MOCATOTS") for r in records]
     moca=[x if x is not None and 0<=x<=30 else None for x in moca_raw]
     ent=[r["ENTORHINAL_BILATERAL_AVGTH"] for r in records]
+    vol_l=[r.get("LH_ENTORHINAL_GVOL") if r.get("LH_ENTORHINAL_GVOL") and r.get("LH_ENTORHINAL_GVOL")>0 else None for r in records]
+    vol_r=[r.get("RH_ENTORHINAL_GVOL") if r.get("RH_ENTORHINAL_GVOL") and r.get("RH_ENTORHINAL_GVOL")>0 else None for r in records]
+    ent_vol=[(a+b)/2 if a is not None and b is not None else None for a,b in zip(vol_l,vol_r)]
+    complete_core=sum(all(v is not None for v in vals) for vals in zip(moca,age,educ,ent,ent_vol))
     cdr=[r.get("CDRSUM") for r in records]
     groups={k:[] for k in STATUS}
     mgroups={k:[] for k in STATUS}
@@ -197,7 +234,9 @@ def main():
     stat={"NACCAGE":summary(age),"EDUC_years":summary(educ),"MOCATOTS_valid_0_30":summary(moca),
           "CDRSUM":summary(cdr),"ENTORHINAL_BILATERAL_AVGTH_mm":summary(ent),
           "LH_ENTORHINAL_AVGTH_mm":summary([r.get("LH_ENTORHINAL_AVGTH") for r in records]),
-          "RH_ENTORHINAL_AVGTH_mm":summary([r.get("RH_ENTORHINAL_AVGTH") for r in records])}
+          "RH_ENTORHINAL_AVGTH_mm":summary([r.get("RH_ENTORHINAL_AVGTH") for r in records]),
+          "ENTORHINAL_BILATERAL_GVOL_mm3":summary(ent_vol),
+          "LH_ENTORHINAL_GVOL_mm3":summary(vol_l),"RH_ENTORHINAL_GVOL_mm3":summary(vol_r)}
     grouped={}
     for key,code in STATUS.items():
         subset=[(r,x,y) for r,x,y in zip(records,moca,ent) if str(int(r["NACCUDSD"]))==key]
@@ -210,10 +249,12 @@ def main():
     blanks={"UDS":sum(v in (None,"") for r in uds for v in r.values()),
             "MRI":sum(v in (None,"") for r in mri for v in r.values())}
     main_vars=["NACCAGE","EDUC","MOCATOTS","NACCUDSD","CDRGLOB","CDRSUM",
-               "LH_ENTORHINAL_AVGTH","RH_ENTORHINAL_AVGTH","LH_ENTORHINAL_GVOL","RH_ENTORHINAL_GVOL"]
+               "LH_ENTORHINAL_AVGTH","RH_ENTORHINAL_AVGTH","ENTORHINAL_BILATERAL_AVGTH",
+               "LH_ENTORHINAL_GVOL","RH_ENTORHINAL_GVOL","ENTORHINAL_BILATERAL_GVOL"]
     missingness=[]
     for name in main_vars:
-        raw=[r.get(name) for r in records]; valid=[]
+        raw=([r["ENTORHINAL_BILATERAL_AVGTH"] for r in records] if name=="ENTORHINAL_BILATERAL_AVGTH" else
+             [(a+b)/2 if a is not None and b is not None and a>0 and b>0 else None for a,b in zip(vol_l,vol_r)] if name=="ENTORHINAL_BILATERAL_GVOL" else [r.get(name) for r in records]); valid=[]
         for v in raw:
             if name=="EDUC": valid.append(v is not None and v!=99)
             elif name=="MOCATOTS": valid.append(v is not None and 0<=v<=30)
@@ -258,33 +299,49 @@ def main():
     chart_bar([(SEX[k],sum(str(int(r["SEX"]))==k for r in records)) for k in SEX],"Sex distribution in linked subset",FIG/"05_sex_distribution.svg")
     chart_box([(STATUS[k],groups[k]) for k in STATUS if groups[k]],"Supplied MOCATOTS by cognitive status",FIG/"06_moca_by_status.svg","MOCATOTS score")
     chart_box([(STATUS[k],mgroups[k]) for k in STATUS if mgroups[k]],"Entorhinal thickness by cognitive status",FIG/"07_thickness_by_status.svg","Bilateral thickness (mm)")
-    paired=[(x,y) for x,y in zip(moca,ent) if x is not None and y is not None]
-    chart_scatter(paired,"Cognitive score and entorhinal thickness",FIG/"08_moca_thickness_scatter.svg")
-    chart_bar([("UDS only",len(set(ids_u)-set(ids_m))),("MRI only",len(set(ids_m)-set(ids_u))),("Both linked",len(common))],"Record linkage across the two modalities",FIG/"09_linkage.svg")
+    paired=[(x,y) for x,y in zip(moca,ent_vol) if x is not None and y is not None]
+    chart_scatter(paired,"MoCA score and bilateral entorhinal volume",FIG/"08_moca_entorhinal_volume_scatter.svg","MOCATOTS score","Bilateral entorhinal volume (mm³)")
+    paired_th=[(x,y) for x,y in zip(moca,ent) if x is not None and y is not None]
+    chart_scatter(paired_th,"MoCA score and bilateral entorhinal thickness",FIG/"09_moca_entorhinal_thickness_scatter.svg","MOCATOTS score","Bilateral entorhinal thickness (mm)")
+    # Pearson correlation heatmap on complete cases for the main continuous variables.
+    corr_names=["MOCATOTS","NACCAGE","EDUC","ENTORHINAL_BILATERAL_AVGTH","ENTORHINAL_BILATERAL_GVOL"]
+    corr_data={"MOCATOTS":moca,"NACCAGE":age,"EDUC":educ,"ENTORHINAL_BILATERAL_AVGTH":ent,"ENTORHINAL_BILATERAL_GVOL":ent_vol}
+    def corr(a,b):
+        pairs=[(x,y) for x,y in zip(a,b) if x is not None and y is not None]
+        if len(pairs)<2:return None
+        xx=[p[0] for p in pairs]; yy=[p[1] for p in pairs]; mx=statistics.mean(xx); my=statistics.mean(yy)
+        den=math.sqrt(sum((x-mx)**2 for x in xx)*sum((y-my)**2 for y in yy))
+        return sum((x-mx)*(y-my) for x,y in pairs)/den if den else None
+    correlation_matrix=[[corr(corr_data[a],corr_data[b]) for b in corr_names] for a in corr_names]
+    chart_heatmap(corr_names,correlation_matrix,FIG/"10_correlation_heatmap.svg")
+    chart_bar([("UDS only",len(set(ids_u)-set(ids_m))),("MRI only",len(set(ids_m)-set(ids_u))),("Both linked",len(common))],"Record linkage across the two modalities",FIG/"11_linkage.svg")
 
     result={"project":"NACC UDS + MRI Phase 1 descriptive analysis","generated_by":"src/phase1_analysis.py",
       "files":{"UDS":"data/udslong_imputed.csv","MRI":"data/mriscanclean.csv","adjacency":"data/combined_adjacency_matrix.csv"},
-      "design":{"analysis_unit":"unique participant (NACCID)","study_type":"observational clinical/research cohort; supplied subset; not population-representative",
+      "design":{"analysis_unit":"unique participant (NACCID)","age_eligibility":"NACCAGE >= 65 years; operational definition of older adult for this analysis","study_type":"observational clinical/research cohort; supplied subset; not population-representative",
         "visits":"one row per unique NACCID in each supplied file; encounter dates and IDs absent, so number/timing of actual visits and MRI-to-UDS temporal matching cannot be determined",
         "collection_period":"not provided in local files","receipt_date":"not provided","imputation":"UDS filename says imputed; method, variables, and original missingness mask were not supplied"},
       "linkage":{"UDS_rows":len(uds),"MRI_rows":len(mri),"unique_UDS_NACCID":len(set(ids_u),),"unique_MRI_NACCID":len(set(ids_m)),
         "common_participants":len(common),"unmatched_UDS":len(unmatched_u),"unmatched_MRI":len(unmatched_m),
+        "linked_participants_before_age_restriction":linked_n,"analytic_participants_age_65_plus":len(records),
         "duplicate_UDS_ID_rows":len(ids_u)-len(set(ids_u)),"duplicate_MRI_ID_rows":len(ids_m)-len(set(ids_m)),
         "NACCUDSD_disagreements":sum(numeric(map_u[k].get("NACCUDSD"))!=numeric(map_m[k].get("NACCUDSD")) for k in common),
         "participants_with_MRI_entorhinal_thickness":n_avail,"participants_without_valid_MRI_entorhinal_thickness":n_no,
-        "participants_with_both_MRI_and_UDS_valid_main_variables":len(paired)},
+        "participants_with_both_MRI_and_UDS_valid_main_variables":complete_core,
+        "moca_volume_scatter_complete_n":len(paired)},
       "file_quality":{"UDS_dimensions":[len(uds),len(uds[0])],"MRI_dimensions":[len(mri),len(mri[0])],"UDS_blank_cells":blanks["UDS"],"MRI_blank_cells":blanks["MRI"],
         "MOCATOTS_nonanalytic_values":dict(invalid),"MOCATOTS_valid_fractional_n":len(frac),"MOCATOTS_valid_integer_n":len(integer),
         "MOCATOTS_integer_sensitivity_summary":integer_summary,"EDUC_code_99_n":education_unknown,"MRI_measure_audit":mri_measure_audit,
-        "NACCUDSD_matches_all_linked_rows":True,"CDRSUM_equals_six_domain_sum":True},
-      "summary_statistics":stat,"categorical_frequencies":cat,"by_NACCUDSD":grouped,"missingness":missingness,
+        "NACCUDSD_matches_all_linked_rows":sum(numeric(map_u[k].get("NACCUDSD"))!=numeric(map_m[k].get("NACCUDSD")) for k in common)==0,
+        "CDR_domain_sum_verifiable":False,"CDR_domain_fields_present":[]},
+      "summary_statistics":stat,"pearson_correlation_matrix":{"variables":corr_names,"values":correlation_matrix},"categorical_frequencies":cat,"by_NACCUDSD":grouped,"missingness":missingness,
       "MRI_availability_comparison":{"has_MRI_n":n_avail,"no_valid_MRI_n":n_no,"comparison_estimable":n_avail>0 and n_no>0,
           "reason":"All linked participants have valid bilateral entorhinal thickness; a with/without MRI comparison has no contrast group." if n_no==0 else "Both groups exist."},
       "adjacency_file":adj,"figure_files":[str(p.relative_to(ROOT)) for p in sorted(FIG.glob("*.svg"))]}
     (OUT/"phase1_results.json").write_text(json.dumps(result,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
 
     write_csv(OUT/"descriptive_statistics.csv",[{"variable":k,**v} for k,v in stat.items()],
-        ["variable","n","mean","sd","min","q1","median","q3","iqr","max"])
+        ["variable","n","mean","sd","skewness","min","q1","median","q3","iqr","max"])
     write_csv(OUT/"categorical_frequencies.csv",[{"variable":k,**e} for k,entries in cat.items() for e in entries],
         ["variable","code","label","n","percent"])
     group_rows=[]
@@ -294,7 +351,7 @@ def main():
         row.update({"entorhinal_"+s:x for s,x in v["ENTORHINAL_BILATERAL_AVGTH_mm"].items()})
         group_rows.append(row)
     write_csv(OUT/"group_summaries.csv",group_rows,
-        ["status_code","status","n","moca_n","moca_mean","moca_sd","moca_min","moca_q1","moca_median","moca_q3","moca_iqr","moca_max","entorhinal_n","entorhinal_mean","entorhinal_sd","entorhinal_min","entorhinal_q1","entorhinal_median","entorhinal_q3","entorhinal_iqr","entorhinal_max"])
+        ["status_code","status","n","moca_n","moca_mean","moca_sd","moca_skewness","moca_min","moca_q1","moca_median","moca_q3","moca_iqr","moca_max","entorhinal_n","entorhinal_mean","entorhinal_sd","entorhinal_skewness","entorhinal_min","entorhinal_q1","entorhinal_median","entorhinal_q3","entorhinal_iqr","entorhinal_max"])
     write_csv(OUT/"missingness.csv",missingness,["variable","n_valid","n_unavailable","percent_unavailable"])
     print(json.dumps({"linkage":result["linkage"],"stats":stat,"status":cat["NACCUDSD"],"invalid_MOCATOTS":dict(invalid),"figures":len(result["figure_files"])},ensure_ascii=False,indent=2))
 
