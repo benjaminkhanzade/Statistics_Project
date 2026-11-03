@@ -1,38 +1,34 @@
-# پروژهٔ آمار: NACC UDS + MRI
+# Statistics Project: NACC UDS + MRI
 
-این مخزن، پروژهٔ انفرادی پنج‌فازی درس آمار را با زیرمجموعهٔ چندوجهی NACC پیش می‌برد. فاز اول حول رابطهٔ MOCATOTS و شاخص‌های حجم و ضخامت انتورینال در سالمندان (سن ≥۶۵) بازسازی شده است. پرسش، واحد تحلیل، تصمیم نمونه و محدودیت‌ها در [کارت پروژه](PROJECT_CARD.md) آمده‌اند.
+This repository contains an individual, five-phase statistics project using a prepared multimodal NACC subset. Phase 1 now focuses on the relationship between MoCA (`MOCATOTS`) and entorhinal volume and thickness among older adults (age 65+). The question, unit of analysis, sample rule, and limitations are documented in the [project card](PROJECT_CARD.md).
 
-## فاز اول
+## Phase 1 files
 
-- گزارش فارسی: [reports/phase1.pdf](reports/phase1.pdf) (نسخهٔ همسان در `reports/phase1/report_phase1.pdf`)
-- تحلیل قابل بازتولید: `src/phase1_analysis.py`؛ از کتابخانه‌های استاندارد Python استفاده می‌کند.
-- ساخت گزارش فارسی: `src/build_phase1_report.py`؛ نیازمند ReportLab، arabic-reshaper، python-bidi و فونت Vazirmatn است.
-- نوت‌بوک راهنما: `notebooks/phase1_descriptive_analysis.ipynb`
-- دادهٔ عددی و ممیزی: `reports/phase1/phase1_results.json` و چهار جدول CSV همان پوشه
-- یازده شکل SVG مستقل: `figures/phase1/`
-- بستهٔ تحویل بدون CSVهای دادهٔ خام: `reports/phase1/phase1_submission.zip`
-- منشأ داده و قواعد بازسازی: [data/README.md](data/README.md)
+- English report: `reports/phase1.pdf` and `reports/phase1/report_phase1.pdf`
+- Reproducible analysis: `src/phase1_analysis.py` (Python standard library)
+- PDF builder: `src/build_phase1_report.py` (ReportLab)
+- Analysis notebook: `notebooks/phase1_descriptive_analysis.ipynb`
+- Machine-readable results and four CSV tables: `reports/phase1/`
+- Eleven standalone SVG figures: `figures/phase1/`
+- Submission bundle, excluding participant-level source CSVs: `reports/phase1/phase1_submission.zip`
+- Data provenance and processing notes: [data/README.md](data/README.md)
 
-اجرای تحلیل از ریشهٔ مخزن:
+Run the analysis from the repository root:
 
 ```bash
 python3 src/phase1_analysis.py
 ```
 
-برای بازسازی PDF، وابستگی‌های `requirements.txt` را در محیط فعال نصب کنید، پایتون آن محیط را با GapWork همراه کنید تا ابزار شکل‌دهی راست‌به‌چپ `fa_pdf.py` در دسترس باشد، سپس اجرا کنید:
+Build the English PDF with the project’s Python environment:
 
 ```bash
 python3 src/build_phase1_report.py
 ```
 
-این فرمان‌ها داده‌های اصلی را بازنویسی نمی‌کنند. مسیرها نسبت به ریشهٔ مخزن تنظیم شده‌اند.
+The commands do not modify source data. Paths are resolved relative to the repository root.
 
-## داده‌ها و دامنه
+## Data and scope
 
-سه فایل CSV در `data/` ورودی پروژه‌اند. دو فایل UDS و MRI هرکدام ۱٬۲۳۷ ردیف و شناسهٔ یکتا دارند و از طریق `NACCID` به‌صورت یک‌به‌یک به هم متصل می‌شوند. فایل ماتریس مجاورت یک شیء منطقه‌ای ۶۲×۶۲ است، شناسهٔ فرد ندارد و در تحلیل‌های شرکت‌کننده‌محور فاز اول استفاده نمی‌شود. فایل راهنمای اختصاصی زیرمجموعه و تاریخ واقعی دریافت/دورهٔ گردآوری همراه پروژه نیست؛ این موارد به‌عنوان نامعلوم ثبت شده‌اند.
+The two participant-level CSV files each contain 1,237 rows and 1,237 unique IDs, linked one-to-one by `NACCID`. The 62×62 adjacency matrix has no participant ID and is not used in participant-level Phase 1 analyses. Visit IDs and dates, scan dates, collection period, and the subset-specific data guide were not supplied.
 
-## ساختار کار
-
-`src/` کد تحلیل و تولید گزارش؛ `notebooks/` دفترچهٔ توضیحی؛ `figures/phase1/` نمودارها؛ `reports/phase1/` گزارش و خروجی‌های جدولی؛ `data/` داده و راهنمای منشأ. داده‌ها برای تکمیل فازهای بعد نگهداری می‌شوند.
-
-فاز اول محاسبات توصیفی و مقایسهٔ گروهی بدون آزمون استنباطی را پوشش می‌دهد. برای ارزیابی هر نتیجه، باید کدنامه، گمشدگیِ احتمالی پیش از جایگذاری، انتخاب مراجعه و هم‌زمانی UDS/MRI بررسی شوند. در حال حاضر، شناسه/تاریخ مراجعه و تاریخ اسکن در ورودی‌ها نیستند.
+The analytic sample includes 864 linked participants aged 65 or older. Phase 1 includes descriptive summaries, missingness, skewness, a scatterplot with an unadjusted linear trend, and a Pearson correlation heatmap. The age- and education-adjusted models are reserved for a later phase. The clinical/research subset is not a probability sample of the general population.

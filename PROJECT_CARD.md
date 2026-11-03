@@ -1,46 +1,41 @@
-# کارت پروژهٔ آمار
+# Statistics Project Card
 
-## عنوان موقت
+## Working title
 
-رابطهٔ نمرهٔ MOCATOTS و ساختار انتورینال MRI در سالمندان NACC
+MoCA and entorhinal MRI measures in older adults in the NACC UDS + MRI subset
 
-## مسیر و زیرمجموعه
+## Dataset and subset
 
-مسیر انتخابی: NACC UDS + MRI. ورودی‌های این نسخه `data/udslong_imputed.csv`، `data/mriscanclean.csv` و برای ممیزی ساختار، `data/combined_adjacency_matrix.csv` هستند. اولین دو فایل مستقیماً با شناسهٔ `NACCID` به هم متصل می‌شوند. دورهٔ گردآوری و تاریخ دریافت محلی مشخص نشده است. فهرست کامل مسیر متغیرها در ادامه آمده؛ تحلیل اصلی شامل حجم و ضخامت انتورینال و سنجش شناختی است.
+The selected pathway uses the prepared NACC UDS and structural MRI files: `data/udslong_imputed.csv`, `data/mriscanclean.csv`, and `data/combined_adjacency_matrix.csv`. UDS and MRI are linked by `NACCID`. Collection period and local receipt date are not available. For Phase 1, older adults are defined operationally as participants with `NACCAGE >= 65`.
 
-## سؤال آماری
+## Statistical question
 
-در سالمندان (NACCAGE ≥ 65) چه رابطهٔ خطی‌ای بین نمرهٔ آزمون شناختی MoCA (MOCATOTS) و شاخص‌های ساختاری MRI، به‌ویژه حجم و ضخامت قشر در ناحیهٔ Entorhinal، وجود دارد؟ در مدل‌سازی بعدی اثر سن (NACCAGE) و سال‌های تحصیلات (EDUC) کنترل خواهد شد. فاز اول حاضر داده را ممیزی و رابطه‌های خام را توصیف می‌کند؛ برآورد تعدیل‌شده به فاز مدل‌سازی موکول است.
+Among adults aged 65 years or older, what is the linear relationship between MoCA score (`MOCATOTS`) and structural MRI measures, especially entorhinal cortical volume and thickness, after controlling for age (`NACCAGE`) and years of education (`EDUC`)? Phase 1 audits and describes the data and unadjusted relationships. Adjusted estimates are reserved for the modeling phase.
 
-## واحد تحلیل و جامعهٔ قابل تفسیر
+## Unit of analysis and target sample
 
-واحد تحلیل یک فرد با NACCID یکتا است. در فایل‌های تحویلی یک ردیف برای هر شناسه وجود دارد، بنابراین همان رکورد یکتا انتخاب شد؛ با این حال چون شناسه/تاریخ مراجعه همراه داده نیست، نمی‌توان آن را Baseline نامید یا فاصلهٔ MRI تا UDS را تعیین کرد. از ۱٬۲۳۷ فرد تطبیق‌یافته، ۸۶۴ نفر سن ۶۵ سال یا بیشتر دارند و جمعیت تحلیلی فاز اول را می‌سازند. نتایج فقط دربارهٔ زیرمجموعهٔ NACC حاضر قابل تفسیرند.
+The unit is one participant identified by unique `NACCID`. Each supplied CSV contains one row per participant, so that row is retained. The files do not include visit IDs or dates; therefore, the row cannot be verified as a true baseline, and the temporal alignment of MRI and UDS cannot be established. Of 1,237 linked participants, 864 are age 65 or older. Conclusions apply to this NACC clinical/research subset, not a probability sample of the general population.
 
-## متغیرها و مقیاس اندازه‌گیری
+## Variables and measurement scales
 
-| متغیر | وجه | مقیاس | کاربرد |
+| Variable | Source | Scale | Role |
 |---|---|---|---|
-| `NACCID` | مشترک | شناسهٔ اسمی | کلید پیوند، نه متغیر تحلیلی |
-| `NACCAGE` | UDS | کمی پیوسته، سال | توصیف سن نمونه |
-| `EDUC` | UDS | کمی گسسته، سال تحصیل | توصیف؛ کد ۹۹ نامعلوم |
-| `SEX` | UDS | اسمی دودویی در دادهٔ حاضر | توصیف فراوانی |
-| `NACCUDSD` | UDS و MRI | طبقه‌ای اسمی چهارگروهی | گروه‌بندی وضعیت شناختی |
-| `MOCATOTS` | UDS | نمرهٔ کمی از ۰ تا ۳۰ | متغیر شناختی اصلی؛ مقادیر خارج از دامنه حذف می‌شوند |
-| `CDRSUM` | UDS | نمرهٔ کمی گسسته با نیم‌نمره | خلاصهٔ شدت CDR |
-| `CDRGLOB` | UDS | طبقه‌ای مرتب | خلاصهٔ شدت CDR |
-| `LH/RH_ENTORHINAL_AVGTH` | MRI | کمی پیوسته، میلی‌متر | اندازه‌گیری دو نیمکره و میانگین دوطرفهٔ تحلیلی |
-| `LH/RH_ENTORHINAL_GVOL` | MRI | کمی پیوسته، میلی‌متر مکعب | حجم دو نیمکره و میانگین دوطرفهٔ تحلیلی |
+| `NACCID` | Shared | Nominal identifier | Link key; not an analytic variable |
+| `NACCAGE` | UDS | Continuous, years | Age and planned adjustment variable |
+| `EDUC` | UDS | Discrete, years of education | Education and planned adjustment variable; code 99 is unknown |
+| `MOCATOTS` | UDS | Score, 0–30 | Primary cognitive measure; out-of-range values are invalid |
+| `NACCUDSD` | UDS/MRI | Four-level categorical | Descriptive grouping variable |
+| `CDRSUM`, `CDRGLOB` | UDS | Numeric score / ordinal category | Clinical description |
+| `LH/RH_ENTORHINAL_AVGTH` | MRI | Continuous, mm | Left/right thickness and derived bilateral mean |
+| `LH/RH_ENTORHINAL_GVOL` | MRI | Continuous, mm³ | Left/right volume and derived bilateral mean |
 
-فاز اول توصیفی است و رابطهٔ خام را نشان می‌دهد. مدل هدف در فاز بعد برای هر شاخص MRI جداگانه به‌صورت MOCATOTS ~ شاخص Entorhinal + NACCAGE + EDUC خواهد بود؛ ضریب تعدیل‌شده در فاز اول گزارش نمی‌شود.
+The planned adjusted model will be fitted separately for each MRI measure: `MOCATOTS ~ entorhinal measure + NACCAGE + EDUC`. Phase 1 reports descriptive statistics, plots, and unadjusted pairwise correlations only.
 
-## فرضیه و محدودیت‌های اولیه
+## Analysis decisions and limitations
 
-فرضیهٔ تأییدی یا فرض صفر/مقابل پیش از تحلیل ثبت نشده است؛ سؤال این فاز اکتشافی و توصیفی است. محدودیت‌های قابل پیش‌بینی عبارت‌اند از: نمونه‌گیری بالینی و غیرتصادفی، گروه بسیار کوچک NACCUDSD=2، ناشناخته‌بودن روش و نقاب جایگذاری در فایل UDS، نبود تاریخ مراجعه و اسکن و در نتیجه نامعلوم‌بودن هم‌زمانی دو وجه، و نامشخص‌بودن انتخاب افراد/اسکن‌های فاقد داده در فایل حاضر.
-
-## تصمیم‌های تحلیلی کلیدی
-
-- `MOCATOTS` خام (و نه `NACCMOCA` تصحیح‌شده برای تحصیل) فقط در دامنهٔ کدنامهٔ ۰–۳۰ خلاصه می‌شود. کد ۸۸ و مقادیر خارج از دامنه به‌صورت نامعتبر ثبت می‌شوند؛ گردکردن یا محدودکردن به ۳۰ انجام نمی‌شود.
-- `EDUC=99` نامعلوم در نظر گرفته می‌شود. کدهای نامعلوم را برای همهٔ ستون‌ها با یک قاعدهٔ عمومی بازتفسیر نمی‌کنیم.
-- ضخامت و حجم دوطرفه هرکدام میانگین چپ و راست‌اند، به شرط مثبت و موجودبودن هر دو مقدار. حجم صفر در خلاصهٔ حجم وارد نمی‌شود.
-- تعریف عملیاتی سالمند در فاز اول: NACCAGE ≥ 65 سال.
-- NACCUDSD وضعیت شناختی را می‌سنجد، نه علت آلزایمر. هیچ نتیجهٔ این فاز تفسیر علّی یا برآورد شیوع جمعیتی ندارد.
+- `MOCATOTS` is summarized only within 0–30. Values are not rounded or clipped.
+- `EDUC=99` is treated as unknown. Other special codes are not generalized across variables.
+- Bilateral volume and thickness are arithmetic means of left and right values when both are present and positive. Nonpositive volumes are not treated as valid measurements.
+- The UDS filename indicates imputed/processed data, but the imputation method and original missingness mask were not supplied.
+- There are no visit identifiers, UDS dates, or scan dates, so baseline selection and UDS–MRI timing cannot be verified.
+- `NACCUDSD` indicates cognitive status, not an etiologic Alzheimer’s diagnosis. This observational analysis is not causal and does not estimate population prevalence.

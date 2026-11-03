@@ -1,184 +1,245 @@
 #!/usr/bin/env python3
-"""Create the Persian Phase 1 PDF from the reproducible analysis outputs."""
-import csv
+"""Build the English Phase 1 PDF from the reproducible analysis outputs."""
 import json
 import math
+import re
 import shutil
-import statistics
-import sys
-from collections import Counter
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import (Flowable, PageBreak, Paragraph, SimpleDocTemplate,
-                                Spacer, Table, TableStyle, KeepTogether)
+from reportlab.platypus import Flowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-SKILL = Path("/Users/benjamin/.gapcode/plugins/cache/gapgpt/pdf/26.722.10000/skills/pdf/scripts")
-sys.path.insert(0, str(SKILL))
-from fa_pdf import register_persian_fonts, rtl_line, rtl_paragraph, persian_digits
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT / "reports" / "phase1"
+RESULT = OUT / "phase1_results.json"
+PDF = OUT / "report_phase1.pdf"
+data = json.loads(RESULT.read_text(encoding="utf-8"))
+stats = data["summary_statistics"]
+link = data["linkage"]
 
-ROOT=Path(__file__).resolve().parents[1]
-RESULT=ROOT/"reports/phase1/phase1_results.json"
-FIG=ROOT/"figures/phase1"
-PDF=ROOT/"reports/phase1/report_phase1.pdf"
-OUT=ROOT/"reports/phase1"
-ACC=colors.HexColor("#176B87"); INK=colors.HexColor("#1F2937"); MUTED=colors.HexColor("#64748B")
-PALE=colors.HexColor("#EEF5F8"); GRID=colors.HexColor("#DCE5EB")
-
-register_persian_fonts(ROOT/"src/assets/fonts")
-data=json.loads(RESULT.read_text(encoding="utf-8"))
-
-
-def fa_num(x, digits=2):
-    if x is None: return "—"
-    if isinstance(x,int) or (isinstance(x,float) and x.is_integer()): s=f"{int(x):,}"
-    else: s=f"{x:,.{digits}f}"
-    return persian_digits(s)
+ACC = colors.HexColor("#176B87")
+INK = colors.HexColor("#1F2937")
+MUTED = colors.HexColor("#64748B")
+PALE = colors.HexColor("#EEF5F8")
+GRID = colors.HexColor("#DCE5EB")
+title = ParagraphStyle("title", fontName="Helvetica-Bold", fontSize=22, leading=28, textColor=INK, spaceAfter=8)
+subtitle = ParagraphStyle("subtitle", fontName="Helvetica", fontSize=11, leading=16, textColor=MUTED, spaceAfter=8)
+h1 = ParagraphStyle("h1", fontName="Helvetica-Bold", fontSize=14, leading=19, textColor=ACC, spaceBefore=8, spaceAfter=5)
+body = ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=14, textColor=INK, spaceAfter=6)
+small = ParagraphStyle("small", fontName="Helvetica", fontSize=8, leading=12, textColor=MUTED)
 
 
-def fa_pct(x): return persian_digits(f"{x:.1f}٪")
+def fmt(value, digits=2):
+    if value is None:
+        return "—"
+    if isinstance(value, (int, float)) and float(value).is_integer():
+        return f"{int(value):,}"
+    return f"{value:,.{digits}f}"
 
 
-styles=getSampleStyleSheet()
-title=ParagraphStyle("faTitle",fontName="Vazirmatn-Bold",fontSize=25,leading=39,textColor=INK,alignment=TA_RIGHT,spaceAfter=6)
-subtitle=ParagraphStyle("faSubtitle",fontName="Vazirmatn",fontSize=12,leading=22,textColor=MUTED,alignment=TA_RIGHT,spaceAfter=5)
-h1=ParagraphStyle("faH1",fontName="Vazirmatn-Bold",fontSize=17,leading=29,textColor=ACC,alignment=TA_RIGHT,spaceBefore=9,spaceAfter=5)
-h2=ParagraphStyle("faH2",fontName="Vazirmatn-Bold",fontSize=12,leading=22,textColor=INK,alignment=TA_RIGHT,spaceBefore=5,spaceAfter=3)
-body=ParagraphStyle("faBody",fontName="Vazirmatn",fontSize=9.4,leading=18.5,textColor=INK,alignment=TA_RIGHT,spaceAfter=5)
-small=ParagraphStyle("faSmall",fontName="Vazirmatn",fontSize=8.2,leading=15.5,textColor=INK,alignment=TA_RIGHT)
-caption=ParagraphStyle("faCaption",fontName="Vazirmatn",fontSize=8.3,leading=16,textColor=MUTED,alignment=TA_RIGHT,spaceBefore=3,spaceAfter=8)
-cell=ParagraphStyle("faCell",fontName="Vazirmatn",fontSize=7.7,leading=13,textColor=INK,alignment=TA_RIGHT)
-headcell=ParagraphStyle("faHeadCell",fontName="Vazirmatn-Bold",fontSize=7.7,leading=13,textColor=colors.white,alignment=TA_RIGHT)
-
-def p(text, style=body, width=None):
-    return rtl_paragraph(text,style,width) if width else rtl_paragraph(text,style,170*mm)
-
-def make_table(headers,rows,widths=None,font_style=cell):
-    vals=[[rtl_line(str(h)) for h in headers]]
-    vals += [[rtl_line(str(v)) for v in row] for row in rows]
-    t=Table(vals,colWidths=widths,repeatRows=1,hAlign="RIGHT")
+def table(headers, rows, widths):
+    t = Table([headers, *rows], colWidths=widths, repeatRows=1, hAlign="LEFT")
     t.setStyle(TableStyle([
-        ("BACKGROUND",(0,0),(-1,0),ACC),("TEXTCOLOR",(0,0),(-1,0),colors.white),
-        ("FONTNAME",(0,0),(-1,0),"Vazirmatn-Bold"),("FONTNAME",(0,1),(-1,-1),"Vazirmatn"),
-        ("FONTSIZE",(0,0),(-1,-1),7.5),("LEADING",(0,0),(-1,-1),12),
-        ("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-        ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),
-        ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
-        ("GRID",(0,0),(-1,-1),.35,GRID),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,PALE])]))
+        ("BACKGROUND", (0, 0), (-1, 0), ACC), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.8), ("LEADING", (0, 0), (-1, -1), 11),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 0), (-1, -1), .35, GRID), ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PALE]),
+    ]))
     return t
 
-def csvrows(name):
-    with (ROOT/"data"/name).open(encoding="utf-8-sig",newline="") as f:return list(csv.DictReader(f))
-uds=csvrows("udslong_imputed.csv"); mri=csvrows("mriscanclean.csv")
-mrimap={r["NACCID"]:r for r in mri}
-def num(s):
-    try:
-        x=float(s)
-        return x if math.isfinite(x) else None
-    except (ValueError,TypeError):return None
-joined=[]
-for u in uds:
-    m=mrimap.get(u["NACCID"])
-    if not m:continue
-    x=num(u.get("MOCATOTS")); x=x if x is not None and 0<=x<=30 else None
-    le,re=num(m.get("LH_ENTORHINAL_AVGTH")),num(m.get("RH_ENTORHINAL_AVGTH"))
-    bt=(le+re)/2 if le is not None and re is not None and le>0 and re>0 else None
-    joined.append({"age":num(u.get("NACCAGE")),"moca":x,"thickness":bt,
-                   "status":int(float(u["NACCUDSD"])),"sex":int(float(u["SEX"]))})
 
-class Figure(Flowable):
-    def __init__(self,kind,width=164*mm,height=91*mm):
-        Flowable.__init__(self);self.kind=kind;self.width=width;self.height=height
-    def wrap(self,aW,aH):
-        self.width=min(self.width,aW);return self.width,self.height
+def footer(canvas, doc):
+    canvas.saveState()
+    canvas.setStrokeColor(GRID)
+    canvas.line(20 * mm, 13 * mm, A4[0] - 20 * mm, 13 * mm)
+    canvas.setFillColor(MUTED)
+    canvas.setFont("Helvetica", 8)
+    canvas.drawString(20 * mm, 8 * mm, "Phase 1 descriptive report | NACC UDS + MRI")
+    canvas.drawRightString(A4[0] - 20 * mm, 8 * mm, str(doc.page))
+    canvas.restoreState()
+
+
+class SVGFigure(Flowable):
+    """Draw the project's primitive-only SVG charts as scalable PDF vectors."""
+    def __init__(self, path, max_width=170 * mm, max_height=125 * mm):
+        super().__init__()
+        self.path = Path(path)
+        self.root = ET.parse(self.path).getroot()
+        self.vb = [float(x) for x in self.root.attrib.get("viewBox", "0 0 900 520").split()]
+        self.scale = min(max_width / self.vb[2], max_height / self.vb[3])
+        self.width, self.height = self.vb[2] * self.scale, self.vb[3] * self.scale
+
+    def wrap(self, available_width, available_height):
+        return min(self.width, available_width), self.height
+
+    @staticmethod
+    def color(value, default=None):
+        if not value or value == "none":
+            return default
+        if value.startswith("#") and len(value) == 7:
+            return colors.HexColor(value)
+        named = {"white": colors.white, "black": colors.black}
+        return named.get(value, default)
+
     def draw(self):
-        c=self.canv;c.saveState();w,h=self.width,self.height
-        L,R,T,B=22*mm,7*mm,9*mm,16*mm; pw=w-L-R; ph=h-T-B
-        def axes(title_text,ylabel):
-            c.setFillColor(INK);c.setFont("Helvetica-Bold",10);c.drawCentredString(w/2,h-4*mm,title_text)
-            c.setStrokeColor(GRID);c.setLineWidth(.45)
-            for i in range(5):
-                y=B+ph*i/4;c.line(L,y,L+pw,y);c.setFillColor(MUTED);c.setFont("Helvetica",7);c.drawRightString(L-2*mm,y-2,ylabel[i] if isinstance(ylabel,list) else str(i))
-            c.setStrokeColor(INK);c.line(L,B,L+pw,B);c.line(L,B,L,B+ph)
-        if self.kind in ("age","moca","thickness"):
-            if self.kind=="age": vals=[r["age"] for r in joined if r["age"] is not None]; title_text="Age at UDS assessment"; xlab="Age (years)"
-            elif self.kind=="moca": vals=[r["moca"] for r in joined if r["moca"] is not None];title_text="Supplied MOCATOTS scores";xlab="MOCATOTS (valid range 0–30)"
-            else: vals=[r["thickness"] for r in joined if r["thickness"] is not None];title_text="Bilateral entorhinal thickness";xlab="Mean left/right thickness (mm)"
-            lo,hi=min(vals),max(vals);bins=18 if self.kind!="moca" else 15;step=(hi-lo)/bins or 1;counts=[0]*bins
-            for v in vals:counts[min(bins-1,int((v-lo)/step))]+=1
-            maxc=max(counts);axes(title_text,[f"{maxc*i/4:.0f}" for i in range(5)])
-            bw=pw/bins
-            c.setFillColor(ACC)
-            for i,n in enumerate(counts):
-                bh=ph*n/maxc;c.roundRect(L+i*bw+1,B,bw-2,bh,1.3,stroke=0,fill=1)
-            c.setFillColor(MUTED);c.setFont("Helvetica",7)
-            for i in range(5):c.drawCentredString(L+pw*i/4,B-4*mm,f"{lo+(hi-lo)*i/4:.1f}")
-            c.setFillColor(INK);c.setFont("Helvetica",8);c.drawCentredString(w/2,2*mm,xlab)
-        elif self.kind in ("status","sex"):
-            if self.kind=="status": entries=[("Normal",847),("Impaired*",7),("MCI",252),("Dementia",131)];title_text="UDS cognitive status"
-            else:entries=[("Male",497),("Female",740)];title_text="Sex distribution"
-            maxc=max(x[1] for x in entries);axes(title_text,[f"{maxc*i/4:.0f}" for i in range(5)])
-            bw=min(30*mm,pw/len(entries)*.56)
-            for i,(lab,n) in enumerate(entries):
-                x=L+pw*(i+.5)/len(entries);bh=ph*n/maxc;c.setFillColor(ACC);c.roundRect(x-bw/2,B,bw,bh,2,stroke=0,fill=1)
-                c.setFillColor(INK);c.setFont("Helvetica",8);c.drawCentredString(x,B-4*mm,lab);c.drawCentredString(x,B+bh+2*mm,str(n))
-        elif self.kind in ("moca_group","thick_group"):
-            metric="moca" if self.kind=="moca_group" else "thickness";title_text="MOCATOTS by status" if metric=="moca" else "Entorhinal thickness by status"
-            vals=[r[metric] for r in joined if r[metric] is not None];lo,hi=min(vals),max(vals);span=hi-lo or 1
-            groups=[("Normal",1),("Impaired*",2),("MCI",3),("Dementia",4)];axes(title_text,[f"{lo+span*i/4:.1f}" for i in range(5)])
-            for i,(lab,code) in enumerate(groups):
-                arr=sorted(r[metric] for r in joined if r["status"]==code and r[metric] is not None)
-                if not arr:continue
-                n=len(arr)
-                def q(z):
-                    h=(n-1)*z; low=int(h); high=math.ceil(h)
-                    return arr[low]+(arr[high]-arr[low])*(h-low)
-                q1,med,q3=q(.25),q(.5),q(.75);x=L+pw*(i+.5)/len(groups); yy=lambda z:B+ph*(z-lo)/span
-                c.setStrokeColor(INK);c.line(x,yy(arr[0]),x,yy(arr[-1]));c.setFillColor(colors.HexColor("#A8DADC"));c.setStrokeColor(ACC);c.rect(x-9*mm,yy(q1),18*mm,max(.8,yy(q3)-yy(q1)),stroke=1,fill=1)
-                c.setStrokeColor(colors.HexColor("#D1495B"));c.setLineWidth(1.5);c.line(x-9*mm,yy(med),x+9*mm,yy(med));c.setFillColor(INK);c.setFont("Helvetica",7);c.drawCentredString(x,B-4*mm,lab);c.drawCentredString(x,B-8*mm,f"n={n}")
-            c.setFillColor(INK);c.setFont("Helvetica",7);c.drawCentredString(w/2,2*mm,"Whiskers show min–max; very small group n=7")
-        elif self.kind=="scatter":
-            points=[(r["moca"],r["thickness"]) for r in joined if r["moca"] is not None and r["thickness"] is not None]
-            xs=[a for a,b in points];ys=[b for a,b in points];x0,x1=min(xs),max(xs);y0,y1=min(ys),max(ys);dx=x1-x0 or 1;dy=y1-y0 or 1
-            axes("MOCATOTS and entorhinal thickness",[f"{y0+dy*i/4:.2f}" for i in range(5)])
-            c.setFillColor(colors.Color(.09,.42,.53,alpha=.35))
-            for x,y in points:c.circle(L+pw*(x-x0)/dx,B+ph*(y-y0)/dy,1.1,stroke=0,fill=1)
-            c.setFillColor(INK);c.setFont("Helvetica",8);c.drawCentredString(w/2,2*mm,"Supplied MOCATOTS score (descriptive association)")
-        elif self.kind=="linkage":
-            entries=[("UDS only",0),("MRI only",0),("Both",1237)];maxc=1237;axes("One-to-one linkage by NACCID",[f"{maxc*i/4:.0f}" for i in range(5)])
-            bw=min(28*mm,pw/len(entries)*.56)
-            for i,(lab,n) in enumerate(entries):
-                x=L+pw*(i+.5)/len(entries);bh=ph*n/maxc;c.setFillColor(ACC);c.roundRect(x-bw/2,B,bw,bh,2,stroke=0,fill=1);c.setFillColor(INK);c.setFont("Helvetica",8);c.drawCentredString(x,B-4*mm,lab);c.drawCentredString(x,B+bh+2*mm,str(n))
+        c = self.canv
+        c.saveState()
+        c.translate(0, self.height)
+        c.scale(self.scale, -self.scale)
+        c.setFillColor(colors.white)
+        c.rect(0, 0, self.vb[2], self.vb[3], stroke=0, fill=1)
+        for el in self.root:
+            tag = el.tag.rsplit("}", 1)[-1]
+            a = el.attrib
+            if tag == "rect":
+                x, y = float(a.get("x", 0)), float(a.get("y", 0))
+                try:
+                    w, h = float(a["width"]), float(a["height"])
+                except (KeyError, ValueError):
+                    continue
+                fill = self.color(a.get("fill"))
+                stroke = self.color(a.get("stroke"))
+                if fill: c.setFillColor(fill)
+                if stroke: c.setStrokeColor(stroke)
+                c.setLineWidth(float(a.get("stroke-width", 1)))
+                c.rect(x, y, w, h, stroke=int(stroke is not None), fill=int(fill is not None))
+            elif tag == "line":
+                stroke = self.color(a.get("stroke"), colors.black)
+                c.setStrokeColor(stroke)
+                c.setLineWidth(float(a.get("stroke-width", 1)))
+                c.line(float(a["x1"]), float(a["y1"]), float(a["x2"]), float(a["y2"]))
+            elif tag == "circle":
+                fill = self.color(a.get("fill"))
+                stroke = self.color(a.get("stroke"))
+                if fill: c.setFillColor(fill)
+                if stroke: c.setStrokeColor(stroke)
+                if a.get("fill-opacity") and hasattr(c, "setFillAlpha"):
+                    c.setFillAlpha(float(a["fill-opacity"]))
+                c.circle(float(a["cx"]), float(a["cy"]), float(a["r"]),
+                         stroke=int(stroke is not None), fill=int(fill is not None))
+                if hasattr(c, "setFillAlpha"): c.setFillAlpha(1)
+            elif tag == "text":
+                txt = el.text or ""
+                if not txt.strip(): continue
+                x, y = float(a.get("x", 0)), float(a.get("y", 0))
+                transform = a.get("transform", "")
+                tr = re.search(r"translate\(([\d.+-]+)[, ]+([\d.+-]+)\)", transform)
+                rot = re.search(r"rotate\(([\d.+-]+)", transform)
+                if tr:
+                    x, y = float(tr.group(1)), float(tr.group(2))
+                c.saveState()
+                c.translate(x, y)
+                if rot:
+                    c.rotate(-float(rot.group(1)))
+                c.scale(1, -1)
+                fill = self.color(a.get("fill"), INK)
+                c.setFillColor(fill)
+                size = float(a.get("font-size", 12))
+                bold = a.get("font-weight", "") in ("700", "bold")
+                c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+                anchor = a.get("text-anchor", "start")
+                if anchor == "middle": c.drawCentredString(0, 0, txt)
+                elif anchor == "end": c.drawRightString(0, 0, txt)
+                else: c.drawString(0, 0, txt)
+                c.restoreState()
         c.restoreState()
 
 
-def header_footer(c,doc):
-    c.saveState();w,h=A4
-    if doc.page>1:
-        c.setStrokeColor(GRID);c.line(20*mm,h-15*mm,w-20*mm,h-15*mm)
-        c.setFillColor(MUTED);c.setFont("Vazirmatn",7.5);c.drawRightString(w-20*mm,h-12*mm,rtl_line("پروژهٔ آمار | فاز اول | زیرمجموعهٔ NACC UDS + MRI"))
-    c.setStrokeColor(GRID);c.line(20*mm,13*mm,w-20*mm,13*mm)
-    c.setFillColor(MUTED);c.setFont("Vazirmatn",7.5);c.drawRightString(w-20*mm,8*mm,rtl_line("گزارش توصیفی؛ بدون آزمون استنباطی"))
-    c.setFont("Helvetica",8);c.drawString(20*mm,8*mm,str(doc.page));c.restoreState()
+story = [
+    Spacer(1, 10 * mm),
+    Paragraph("Phase 1: MoCA and Entorhinal MRI Measures", title),
+    Paragraph("NACC UDS + structural MRI | Analytic sample: age 65 and older", subtitle),
+    Paragraph("Statistical question", h1),
+    Paragraph("Among adults aged 65 or older, what descriptive linear relationships are observed between MoCA score (MOCATOTS) and entorhinal cortical volume and thickness? Age (NACCAGE) and years of education (EDUC) are planned adjustment variables for the later modeling phase.", body),
+    table(["Sample step", "Participants / records"], [
+        ["UDS rows / unique participants", f"{link['UDS_rows']:,} / {link['unique_UDS_NACCID']:,}"],
+        ["MRI rows / unique participants", f"{link['MRI_rows']:,} / {link['unique_MRI_NACCID']:,}"],
+        ["IDs linked across both files", f"{link['common_participants']:,}"],
+        ["Age 65+ analytic sample", f"{link['analytic_participants_age_65_plus']:,}"],
+        ["Complete cases across core variables", f"{link['participants_with_both_MRI_and_UDS_valid_main_variables']:,}"],
+    ], [105 * mm, 58 * mm]),
+    Paragraph("Unit of analysis and selection rule", h1),
+    Paragraph("The unit is one participant identified by NACCID. Each supplied file contains one row per ID, with no duplicate IDs; that available row is retained. Participants are then restricted to NACCAGE ≥ 65. Visit identifiers/dates and MRI scan dates are absent, so the record cannot be verified as a true baseline and the timing of UDS and MRI cannot be established.", body),
+    Paragraph("Descriptive statistics", h1),
+]
 
-story=[]
-S=data["summary_statistics"]
-L=data["linkage"]
-story += [Spacer(1,15*mm),p("فاز اول: توصیف رابطهٔ MoCA و MRI انتورینال",title),p("جامعهٔ تحلیلی: سالمندان NACC؛ UDS + MRI",subtitle),Spacer(1,7*mm)]
-story += [p("سؤال آماری",h1),p("در افراد ۶۵ ساله و بالاتر، نمرهٔ MOCATOTS چه رابطهٔ توصیفی با حجم و ضخامت قشر Entorhinal دارد؟ در فاز مدل‌سازی بعدی، سن NACCAGE و سال‌های تحصیلات EDUC به‌عنوان متغیرهای کنترل وارد خواهند شد.",body)]
-story += [make_table(["مرحلهٔ نمونه","تعداد"],[["سطرهای UDS / افراد یکتای UDS",f"{L['UDS_rows']:,} / {L['unique_UDS_NACCID']:,}"],["سطرهای MRI / افراد یکتای MRI",f"{L['MRI_rows']:,} / {L['unique_MRI_NACCID']:,}"],["NACCID مشترک",f"{L['common_participants']:,}"],["افراد ۶۵ سال به بالا؛ نمونهٔ تحلیلی",f"{L['analytic_participants_age_65_plus']:,}"],["نمونهٔ کامل برای متغیرهای اصلی",f"{L['participants_with_both_MRI_and_UDS_valid_main_variables']:,}"]],[90*mm,73*mm]),Spacer(1,5*mm)]
-story += [p("واحد تحلیل و قاعدهٔ انتخاب",h1),p("واحد تحلیل NACCID است. در هر دو فایل یک ردیف برای هر شناسه وجود دارد؛ تکرار شناسه دیده نشد. بنابراین همان ردیف یکتای موجود نگه داشته شد و سپس سن NACCAGE ≥ 65 شرط ورود به نمونهٔ سالمندان بود. فایل‌ها شناسه/تاریخ مراجعه و تاریخ MRI ندارند، پس نمی‌توان این ردیف را Baseline نامید یا هم‌زمانی UDS و MRI را احراز کرد.",body),p("آمار توصیفی نمونهٔ ۶۵+",h1)]
-keys=[("NACCAGE","سن، سال"),("EDUC_years","تحصیلات، سال"),("MOCATOTS_valid_0_30","MOCATOTS"),("ENTORHINAL_BILATERAL_GVOL_mm3","حجم دوطرفه، mm³"),("ENTORHINAL_BILATERAL_AVGTH_mm","ضخامت دوطرفه، mm")]
-rows=[]
-for key,label in keys:
- s=S[key]; rows.append([label,fa_num(s['n'],0),fa_num(s['mean']),fa_num(s['median']),fa_num(s['sd']),fa_num(s['iqr']),fa_num(s['skewness'])])
-story += [make_table(["متغیر","n","میانگین","میانه","SD","IQR","چولگی"],rows,[42*mm,15*mm,24*mm,22*mm,20*mm,20*mm,20*mm]),Spacer(1,4*mm),p("چولگی منفی MOCATOTS نشان می‌دهد نمره‌ها در این نمونه بیشتر در سمت بالای مقیاس متمرکزند. EDUC=99 نامعلوم تلقی شد؛ ۹ مقدار MOCATOTS خارج از دامنهٔ ۰–۳۰ حذف شد. حجم‌های نامثبت برای خلاصهٔ حجم قابل قبول نیستند. مقدارهای فایل UDS از دادهٔ جایگذاری‌شده‌اند و روش/نقاب مقادیر اولیه در دسترس نیست.",body),PageBreak()]
-story += [p("گمشدگی و کیفیت",h1),make_table(["متغیر","معتبر n","نامعلوم/نامعتبر n","درصد"],[[r['variable'],fa_num(r['n_valid'],0),fa_num(r['n_unavailable'],0),fa_pct(r['percent_unavailable'])] for r in data['missingness']],[60*mm,30*mm,42*mm,28*mm]),Spacer(1,6*mm),p("نمودارهای فاز اول",h1),make_table(["نمودار","فایل"],[["توزیع نمرهٔ MOCATOTS","figures/phase1/02_moca_distribution.svg"],["پراکنش MOCATOTS و حجم دوطرفهٔ Entorhinal با روند خطی","figures/phase1/08_moca_entorhinal_volume_scatter.svg"],["Boxplot نمره برحسب وضعیت شناختی","figures/phase1/06_moca_by_status.svg"],["Heatmap همبستگی Pearson متغیرهای کلیدی","figures/phase1/10_correlation_heatmap.svg"]],[82*mm,81*mm]),Spacer(1,5*mm),p("تفسیر و گام بعد",h1),p("خط روند و همبستگی‌های heatmap خام و توصیفی‌اند؛ اثر سن و تحصیلات را کنترل نمی‌کنند و رابطهٔ علّی را نشان نمی‌دهند. در فاز مدل‌سازی، برای هر شاخص MRI جداگانه مدل چندمتغیرهٔ MOCATOTS ~ شاخص انتورینال + سن + تحصیلات تعریف شود؛ بررسی فروض، باقیمانده‌ها، گمشدگی و هم‌زمانی MRI/UDS پیش از تفسیر لازم است. نمونه، زیرمجموعهٔ بالینی/پژوهشی NACC است و نمایندهٔ تصادفی جمعیت عمومی نیست.",body),Spacer(1,3*mm),p("کد تحلیل: src/phase1_analysis.py | جدول‌ها و نتایج ماشین‌خوان: reports/phase1/ | نمودارها: figures/phase1/",small)]
-doc=SimpleDocTemplate(str(PDF),pagesize=A4,rightMargin=20*mm,leftMargin=20*mm,topMargin=21*mm,bottomMargin=19*mm,title="فاز اول؛ NACC سالمندان و MoCA/MRI انتورینال",author="تحلیل توصیفی بازتولیدپذیر")
-doc.build(story,onFirstPage=header_footer,onLaterPages=header_footer)
-shutil.copyfile(PDF,ROOT/"reports/phase1.pdf")
+keys = [
+    ("NACCAGE", "Age (years)"),
+    ("EDUC_years", "Education (years)"),
+    ("MOCATOTS_valid_0_30", "MOCATOTS"),
+    ("ENTORHINAL_BILATERAL_GVOL_mm3", "Bilateral volume (mm³)"),
+    ("ENTORHINAL_BILATERAL_AVGTH_mm", "Bilateral thickness (mm)"),
+]
+desc = [[label, fmt(stats[key]["n"], 0), fmt(stats[key]["mean"]), fmt(stats[key]["median"]),
+         fmt(stats[key]["sd"]), fmt(stats[key]["iqr"]), fmt(stats[key]["skewness"])]
+        for key, label in keys]
+story += [table(["Variable", "n", "Mean", "Median", "SD", "IQR", "Skewness"], desc,
+                [47 * mm, 14 * mm, 23 * mm, 22 * mm, 20 * mm, 19 * mm, 18 * mm]), Spacer(1, 4 * mm),
+          Paragraph("MOCATOTS is concentrated toward the upper end of its valid range, reflected by negative skewness. EDUC=99 is treated as unknown, and out-of-range MOCATOTS values are invalid. Nonpositive entorhinal volumes are not accepted as valid measurements. The UDS filename indicates imputed/processed data, but its method and original missingness mask were not supplied.", body),
+          PageBreak(), Paragraph("Missingness and data quality", h1)]
+miss = [[r["variable"], fmt(r["n_valid"], 0), fmt(r["n_unavailable"], 0), f"{r['percent_unavailable']:.2f}%"]
+        for r in data["missingness"]]
+story += [table(["Variable", "Valid n", "Missing/invalid n", "Percent"], miss,
+                [72 * mm, 28 * mm, 38 * mm, 25 * mm]),
+          Paragraph("Phase 1 figures", h1),
+          table(["Figure", "File"], [
+              ["MOCATOTS distribution", "figures/phase1/02_moca_distribution.svg"],
+              ["MoCA vs. bilateral entorhinal volume with linear trend", "figures/phase1/08_moca_entorhinal_volume_scatter.svg"],
+              ["MoCA boxplot by cognitive status", "figures/phase1/06_moca_by_status.svg"],
+              ["Pearson correlation heatmap", "figures/phase1/10_correlation_heatmap.svg"],
+          ], [88 * mm, 75 * mm]), Paragraph("Interpretation and next step", h1),
+          Paragraph("The plotted trend and heatmap correlations are raw, descriptive associations. They do not control for age or education and do not establish causation. In the modeling phase, fit separate multiple linear regression models for entorhinal volume and thickness: MOCATOTS ~ entorhinal measure + NACCAGE + EDUC. Check assumptions, residuals, missingness, MRI quality, and UDS–MRI timing before interpreting adjusted estimates. The available NACC clinical/research subset is not a probability sample of the general population.", body),
+          Paragraph("Analysis code: src/phase1_analysis.py | Tables and machine-readable results: reports/phase1/ | Figures: figures/phase1/", small)]
+
+# Add every generated Phase 1 figure as vector artwork in an illustrated appendix.
+captions = {
+    "01_age_distribution.svg": "Age distribution in the age-65+ analytic sample.",
+    "02_moca_distribution.svg": "Distribution of valid MOCATOTS scores (0–30).",
+    "03_entorhinal_distribution.svg": "Distribution of bilateral mean entorhinal cortical thickness.",
+    "04_cognitive_status.svg": "Participant counts by UDS cognitive-status category.",
+    "05_sex_distribution.svg": "Participant counts by recorded sex category.",
+    "06_moca_by_status.svg": "MOCATOTS distribution by NACCUDSD cognitive-status category.",
+    "07_thickness_by_status.svg": "Bilateral entorhinal thickness by NACCUDSD category.",
+    "08_moca_entorhinal_volume_scatter.svg": "MoCA versus bilateral entorhinal volume with an unadjusted linear trend.",
+    "09_moca_entorhinal_thickness_scatter.svg": "MoCA versus bilateral entorhinal thickness with an unadjusted linear trend.",
+    "10_correlation_heatmap.svg": "Pairwise Pearson correlations among the main continuous variables.",
+    "11_linkage.svg": "Counts of UDS-only, MRI-only, and linked participant records.",
+}
+figures = []
+for filename, caption_text in captions.items():
+    path = ROOT / "figures" / "phase1" / filename
+    if path.exists():
+        fig = SVGFigure(path)
+        figures.append((fig, caption_text))
+
+if figures:
+    story.append(PageBreak())
+    story.append(Paragraph("Figures and supplementary charts", h1))
+    page_items = []
+    used_height = 22 * mm
+    for fig, caption_text in figures:
+        block_height = fig.height + 13 * mm
+        if page_items and used_height + block_height > 245 * mm:
+            story.extend(page_items)
+            story.append(PageBreak())
+            page_items = []
+            used_height = 0
+        page_items.extend([fig, Paragraph(caption_text, small), Spacer(1, 5 * mm)])
+        used_height += block_height
+    if page_items:
+        story.extend(page_items)
+
+doc = SimpleDocTemplate(str(PDF), pagesize=A4, rightMargin=20 * mm, leftMargin=20 * mm,
+                        topMargin=20 * mm, bottomMargin=19 * mm,
+                        title="Phase 1: NACC Older Adults, MoCA, and Entorhinal MRI", author="Reproducible descriptive analysis")
+doc.build(story, onFirstPage=footer, onLaterPages=footer)
+shutil.copyfile(PDF, ROOT / "reports" / "phase1.pdf")
 print(f"Created {PDF} and reports/phase1.pdf")
