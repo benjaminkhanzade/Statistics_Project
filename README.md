@@ -1,6 +1,6 @@
 # پروژهٔ آمار: NACC UDS + MRI
 
-این مخزن، پروژهٔ انفرادی پنج‌فازی درس آمار را با زیرمجموعهٔ چندوجهی NACC پیش می‌برد. فاز اول با تمرکز بر ممیزی کیفیت، اتصال UDS و MRI و آمار توصیفی تکمیل شده است. پرسش، واحد تحلیل و محدودیت‌ها در [کارت پروژه](PROJECT_CARD.md) آمده‌اند.
+این مخزن، پروژهٔ انفرادی پنج‌فازی درس آمار را با زیرمجموعهٔ چندوجهی NACC پیش می‌برد. فاز اول حول رابطهٔ MOCATOTS و شاخص‌های حجم و ضخامت انتورینال در سالمندان (سن ≥۶۵) بازسازی شده است. پرسش، واحد تحلیل، تصمیم نمونه و محدودیت‌ها در [کارت پروژه](PROJECT_CARD.md) آمده‌اند.
 
 ## فاز اول
 
@@ -9,7 +9,7 @@
 - ساخت گزارش فارسی: `src/build_phase1_report.py`؛ نیازمند ReportLab، arabic-reshaper، python-bidi و فونت Vazirmatn است.
 - نوت‌بوک راهنما: `notebooks/phase1_descriptive_analysis.ipynb`
 - دادهٔ عددی و ممیزی: `reports/phase1/phase1_results.json` و چهار جدول CSV همان پوشه
-- نه شکل SVG مستقل: `figures/phase1/`
+- یازده شکل SVG مستقل: `figures/phase1/`
 - بستهٔ تحویل بدون CSVهای دادهٔ خام: `reports/phase1/phase1_submission.zip`
 - منشأ داده و قواعد بازسازی: [data/README.md](data/README.md)
 
