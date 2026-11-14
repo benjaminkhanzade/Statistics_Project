@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="450.0" y="38" text-anchor="middle" font-family="Arial" font-size="21" font-weight="700" fill="#18324b">Participant age at UDS assessment</text>
+<text x="450.0" y="64" text-anchor="middle" font-family="Arial" font-size="13" fill="#64748b">n = 864; equally spaced bins</text>
+<line x1="84" y1="92.0" x2="870" y2="92.0" stroke="#e5eaf0"/>
+<text x="72" y="96.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">124</text>
+<line x1="84" y1="179.0" x2="870" y2="179.0" stroke="#e5eaf0"/>
+<text x="72" y="183.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">93</text>
+<line x1="84" y1="266.0" x2="870" y2="266.0" stroke="#e5eaf0"/>
+<text x="72" y="270.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">62</text>
+<line x1="84" y1="353.0" x2="870" y2="353.0" stroke="#e5eaf0"/>
+<text x="72" y="357.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">31</text>
+<line x1="84" y1="440.0" x2="870" y2="440.0" stroke="#e5eaf0"/>
+<text x="72" y="444.0" text-anchor="end" font-family="Arial" font-size="12" fill="#526171">0</text>
+<rect x="85.00" y="92.00" width="41.67" height="348.00" rx="2" fill="#247ba0"/>
+<rect x="128.67" y="246.35" width="41.67" height="193.65" rx="2" fill="#247ba0"/>
+<rect x="172.33" y="106.03" width="41.67" height="333.97" rx="2" fill="#247ba0"/>
+<rect x="216.00" y="246.35" width="41.67" height="193.65" rx="2" fill="#247ba0"/>
+<rect x="259.67" y="114.45" width="41.67" height="325.55" rx="2" fill="#247ba0"/>
+<rect x="303.33" y="288.45" width="41.67" height="151.55" rx="2" fill="#247ba0"/>
+<rect x="347.00" y="223.90" width="41.67" height="216.10" rx="2" fill="#247ba0"/>
+<rect x="390.67" y="280.03" width="41.67" height="159.97" rx="2" fill="#247ba0"/>
+<rect x="434.33" y="350.19" width="41.67" height="89.81" rx="2" fill="#247ba0"/>
+<rect x="478.00" y="302.48" width="41.67" height="137.52" rx="2" fill="#247ba0"/>
+<rect x="521.67" y="358.61" width="41.67" height="81.39" rx="2" fill="#247ba0"/>
+<rect x="565.33" y="344.58" width="41.67" height="95.42" rx="2" fill="#247ba0"/>
+<rect x="609.00" y="417.55" width="41.67" height="22.45" rx="2" fill="#247ba0"/>
+<rect x="652.67" y="397.90" width="41.67" height="42.10" rx="2" fill="#247ba0"/>
+<rect x="696.33" y="428.77" width="41.67" height="11.23" rx="2" fill="#247ba0"/>
+<rect x="740.00" y="434.39" width="41.67" height="5.61" rx="2" fill="#247ba0"/>
+<rect x="783.67" y="431.58" width="41.67" height="8.42" rx="2" fill="#247ba0"/>
+<rect x="827.33" y="431.58" width="41.67" height="8.42" rx="2" fill="#247ba0"/>
+<text x="84.0" y="464" text-anchor="middle" font-family="Arial" font-size="12" fill="#526171">65.0</text>
+<text x="280.5" y="464" text-anchor="middle" font-family="Arial" font-size="12" fill="#526171">71.5</text>
+<text x="477.0" y="464" text-anchor="middle" font-family="Arial" font-size="12" fill="#526171">78.0</text>
+<text x="673.5" y="464" text-anchor="middle" font-family="Arial" font-size="12" fill="#526171">84.5</text>
+<text x="870.0" y="464" text-anchor="middle" font-family="Arial" font-size="12" fill="#526171">91.0</text>
+<line x1="84" y1="92" x2="84" y2="440" stroke="#334155"/>
+<line x1="84" y1="440" x2="870" y2="440" stroke="#334155"/>
+<text x="450.0" y="498" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">Age (years)</text>
+<text transform="translate(25,260.0) rotate(-90)" text-anchor="middle" font-family="Arial" font-size="14" fill="#334155">Participants</text>
+</svg>

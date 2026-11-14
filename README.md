@@ -13,6 +13,45 @@ This repository contains an individual, five-phase statistics project using a pr
 - Submission bundle, excluding participant-level source CSVs: `reports/phase1/phase1_submission.zip`
 - Data provenance and processing notes: [data/README.md](data/README.md)
 
+## Phase 2 probability analysis
+
+- Reproducible analysis and focused data-integrity assertions: `src/phase2_analysis.py`
+- Companion analysis notebook: `notebooks/phase2_probability_analysis.ipynb`
+- English LaTeX report source: `reports/phase2.tex`
+- Generated report PDF: `reports/phase2.pdf`
+- Machine-readable results and audit tables: `reports/phase2/`
+- Vector plots (PDF and SVG): `figures/phase2/`
+
+From the repository root, install the Python report dependencies and run:
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 src/phase2_analysis.py
+```
+
+The script reads the two supplied CSVs, rebuilds all Phase 2 tables and plots,
+and writes the PDF report using ReportLab. To compile the LaTeX source when a
+TeX distribution is installed, run from the repository root:
+
+```bash
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=reports reports/phase2.tex
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=reports reports/phase2.tex
+```
+
+The TeX source requires the standard `geometry`, `booktabs`, `graphicx`,
+`amsmath`, `hyperref`, `caption`, and `float` packages. This environment did
+not have a TeX engine installed, so `reports/phase2.pdf` was generated from
+the same analysis outputs with ReportLab; the `.tex` source is included for
+reproduction with pdfLaTeX. Python PDF rendering uses `pypdfium2`.
+
+Phase 2 uses one supplied record per unique `NACCID` after checking uniqueness.
+The supplied files lack visit identifiers/dates and MRI scan dates, so the
+record cannot be confirmed as baseline and UDS/MRI contemporaneity cannot be
+established. The UDS file is processed/imputed, but its imputation procedure
+and original missingness mask are unavailable. The empirical probabilities
+describe only the age-65+ linked clinical/research subset, not older adults
+generally. The participant-free adjacency matrix is not used for probabilities.
+
 Run the analysis from the repository root:
 
 ```bash
