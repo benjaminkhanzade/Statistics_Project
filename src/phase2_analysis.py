@@ -61,6 +61,44 @@ def csv_write(path, rows, fields):
         w.writeheader(); w.writerows(rows)
 
 
+def bayes_theorem_verification(p_A, p_B_given_A, p_B_given_not_A):
+    """Bayes' theorem: P(A|B) = P(B|A)P(A) / P(B), with the law of total
+    probability P(B) = P(B|A)P(A) + P(B|~A)P(~A). Inputs are conditional
+    probabilities, so the result is independent of the direct 2x2 ratio."""
+    p_not_A = 1 - p_A
+    p_B = p_B_given_A * p_A + p_B_given_not_A * p_not_A
+    p_A_given_B = (p_B_given_A * p_A) / p_B
+    return {"P(B)_derived": p_B, "P(A|B)_bayes": p_A_given_B}
+
+
+def correlation_statistics(pairs):
+    """Covariance (n-1), Pearson and Spearman correlations with p-values."""
+    import numpy as np
+    from scipy import stats as sps
+    x = np.array([a for a, _ in pairs], dtype=float)
+    y = np.array([b for _, b in pairs], dtype=float)
+    pr, pp = sps.pearsonr(x, y)
+    sr, sp = sps.spearmanr(x, y)
+    return {"covariance": float(np.cov(x, y, ddof=1)[0, 1]), "pearson_r": float(pr),
+            "pearson_p": float(pp), "spearman_r": float(sr), "spearman_p": float(sp),
+            "n": int(len(x))}
+
+
+def normality_statistics(moca, volume):
+    """Skewness, excess kurtosis (moment based) and Shapiro-Wilk p-values."""
+    from scipy import stats as sps
+    out = {}
+    for key, v in (("moca", moca), ("volume", volume)):
+        out[f"{key}_n"] = len(v)
+        out[f"{key}_skewness"] = float(sps.skew(v))
+        out[f"{key}_kurtosis"] = float(sps.kurtosis(v))  # excess kurtosis
+        w, p = sps.shapiro(v)
+        out[f"{key}_shapiro_W"] = float(w)
+        out[f"{key}_shapiro_p"] = float(p)
+    out["kurtosis_definition"] = "excess kurtosis (normal = 0), moment estimator"
+    return out
+
+
 def save_svg(path, content, width=900, height=560):
     path.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">\n<rect width="100%" height="100%" fill="white"/>\n{content}\n</svg>', encoding="utf-8")
 
@@ -122,6 +160,53 @@ def qqplot(values, title, xlabel, path):
     save_svg(path,"\n".join(a))
 
 
+def new_figures(pairs_status, result):
+    """Regression scatter (colored by NACCUDSD) and Bayes posterior bars."""
+    import numpy as np
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from scipy import stats as sps
+    cr = result["correlation"]; bv = result["bayes_verification"]
+    x = np.array([t[0] for t in pairs_status]); y = np.array([t[1] for t in pairs_status])
+    st = np.array([t[2] for t in pairs_status])
+    fig, ax = plt.subplots(figsize=(9, 5.8))
+    colors_ = {1: "#2a9d8f", 2: "#e9c46a", 3: "#f4a261", 4: "#d1495b"}
+    rng = np.random.default_rng(2)
+    for code in (1, 2, 3, 4):
+        mk = st == code
+        if mk.any():
+            ax.scatter(x[mk] + rng.uniform(-.2, .2, mk.sum()), y[mk], s=14, alpha=.55,
+                       color=colors_[code], label=f"{STATUS[code]} (n={int(mk.sum())})", linewidths=0)
+    lr = sps.linregress(x, y); xs = np.linspace(x.min(), x.max(), 200)
+    n = len(x); resid = y - (lr.intercept + lr.slope * x); s_err = np.sqrt((resid ** 2).sum() / (n - 2))
+    se = s_err * np.sqrt(1 / n + (xs - x.mean()) ** 2 / ((x - x.mean()) ** 2).sum())
+    t = sps.t.ppf(.975, n - 2); fit = lr.intercept + lr.slope * xs
+    ax.fill_between(xs, fit - t * se, fit + t * se, color="#18324b", alpha=.25, label="95% CI of fitted mean")
+    ax.plot(xs, fit, color="#18324b", lw=2, label="Linear regression")
+    ax.text(.03, .97, f"Pearson r = {cr['pearson_r']:.3f}\np = {cr['pearson_p']:.2e}\nn = {cr['n']}",
+            transform=ax.transAxes, va="top", bbox=dict(boxstyle="round", fc="white", ec="#ccd5de"))
+    ax.set_xlabel("MOCATOTS (score points; horizontal jitter ±0.2 for display only)")
+    ax.set_ylabel("Bilateral entorhinal volume (mm³)")
+    ax.set_title("MoCA vs. bilateral entorhinal volume, colored by NACCUDSD")
+    ax.legend(loc="lower right", fontsize=8); ax.grid(alpha=.25); fig.tight_layout()
+    for ext in ("svg", "png", "pdf"):
+        fig.savefig(FIG / f"moca_volume_scatter_regression.{ext}", dpi=150)
+    plt.close(fig)
+    fig, ax = plt.subplots(figsize=(7.5, 5.2))
+    vals = [100 * bv["P_A_given_B_bayes"], 100 * result["probabilities"]["P_A_given_not_B"]["value"]]
+    bars = ax.bar(["P(impaired | low volume)", "P(impaired | high volume)"], vals, color=["#d1495b", "#247ba0"], width=.55)
+    ax.axhline(100 * bv["P_A"], color="#18324b", ls="--", lw=1.8, label=f"Prior P(impaired) = {100*bv['P_A']:.1f}%")
+    for b_, v_ in zip(bars, vals):
+        ax.text(b_.get_x() + b_.get_width() / 2, v_ + 1, f"{v_:.1f}%", ha="center", fontweight="bold")
+    ax.set_ylim(0, max(vals) + 12); ax.set_ylabel("Probability (%)")
+    ax.set_title("Bayes posterior: impairment probability by volume group")
+    ax.legend(loc="upper right"); ax.grid(axis="y", alpha=.25); fig.tight_layout()
+    for ext in ("svg", "png", "pdf"):
+        fig.savefig(FIG / f"bayes_posterior.{ext}", dpi=150)
+    plt.close(fig)
+
+
 def main():
     OUT.mkdir(parents=True,exist_ok=True); FIG.mkdir(parents=True,exist_ok=True)
     uds=read_csv(DATA/"udslong_imputed.csv"); mri=read_csv(DATA/"mriscanclean.csv")
@@ -157,6 +242,9 @@ def main():
     pA=(n11+n10)/n;pB=(n11+n01)/n;pAB=n11/n;pA_B=n11/(n11+n01);pA_notB=n10/(n10+n00)
     pB_A=n11/(n11+n10); bayes=pA_B*pB/pA
     assert all(0<=x<=1 for x in (pA,pB,pAB,pA_B,pA_notB,pB_A,bayes)) and abs(pB_A-bayes)<1e-12
+    bayes_check=bayes_theorem_verification(pA, pB_A, n01/(n01+n00))
+    assert abs(bayes_check["P(B)_derived"]-pB)<1e-12
+    assert abs(bayes_check["P(A|B)_bayes"]-pA_B)<1e-12
     # Dataset-defined groups use the same common valid cohort denominator.
     group_rows=[]
     for flag,label in ((1,"At or below volume median"),(0,"Above volume median")):
@@ -170,6 +258,9 @@ def main():
     cov=sum((a-statistics.mean(x))*(b-statistics.mean(y)) for a,b in pairs)/(pairn-1)
     corr=cov/(statistics.stdev(x)*statistics.stdev(y))
     mstat=stats(moca); vstat=stats(vol)
+    corrstat=correlation_statistics(pairs)
+    assert abs(corrstat["covariance"]-cov)<1e-9 and abs(corrstat["pearson_r"]-corr)<1e-9
+    normstat=normality_statistics(moca, vol)
     # Flow counts specify the valid n for each analysis explicitly.
     flow=[{"step":"UDS input records","n":len(uds)},{"step":"MRI input records","n":len(mri)},{"step":"matched unique participants","n":linked},{"step":"age eligible (NACCAGE >= 65)","n":len(eligible)},{"step":"valid cognitive-status and bilateral-volume 2x2 subset","n":n},{"step":"valid MOCATOTS (0 to 30)","n":len(moca)},{"step":"valid bilateral volume","n":len(vol)},{"step":"paired valid MoCA and volume","n":pairn}]
     result={"design":{"unit":"one supplied row per unique NACCID","population":"age-65+ participants in the supplied linked NACC UDS/MRI clinical/research subset; not all older adults","baseline_or_temporal_alignment":"cannot establish baseline visit or contemporaneous UDS/MRI; supplied files lack visit identifiers/dates and MRI scan dates","UDS_processing":"processed/imputed file; imputation procedure and original missingness mask unavailable","status_codes":STATUS,"moca_rule":"MOCATOTS accepted only in [0,30]; no rounding or clipping","volume_rule":"arithmetic mean of left/right entorhinal GVOL only when both values are positive","variance_convention":"empirical distribution variance with divisor n except pairwise covariance, which is sample covariance with divisor n-1"},
@@ -182,8 +273,25 @@ def main():
     # Assertions requested for audit and reproducibility.
     assert len(eligible)==864 and linked==1237
     assert sum(x["count"] for x in result["contingency"]["rows"])==n
+    result["bayes_verification"]={"P_B_given_A":pB_A,"P_B_given_not_A":n01/(n01+n00),
+        "P_A":pA,"P_not_A":1-pA,"P_B_derived":bayes_check["P(B)_derived"],
+        "P_A_given_B_bayes":bayes_check["P(A|B)_bayes"],
+        "P_A_given_B_direct":pA_B,
+        "absolute_difference":abs(bayes_check["P(A|B)_bayes"]-pA_B),
+        "match":abs(bayes_check["P(A|B)_bayes"]-pA_B)<1e-12}
+    result["correlation"]={**corrstat,"interpretation":"descriptive linear association in the paired-complete subset; not causal"}
+    result["normality"]=normstat
     csv_write(OUT/"analytic_flow.csv",flow,["step","n"])
-    csv_write(OUT/"contingency_2x2.csv",[{"A":"yes","B":"yes","count":n11,"denominator":n},{"A":"yes","B":"no","count":n10,"denominator":n},{"A":"no","B":"yes","count":n01,"denominator":n},{"A":"no","B":"no","count":n00,"denominator":n}], ["A","B","count","denominator"])
+    joint=[{"A":"yes","B":"yes","count":n11,"denominator":n},{"A":"yes","B":"no","count":n10,"denominator":n},{"A":"no","B":"yes","count":n01,"denominator":n},{"A":"no","B":"no","count":n00,"denominator":n}]
+    split_rows=[]
+    for label,impaired_group,normal_group in (("low_volume",n11,n01),("high_volume",n10,n00)):
+        tot=impaired_group+normal_group
+        split_rows.append({"group":label,"impaired":impaired_group,"normal":normal_group,"total":tot,
+            "impaired_pct":round(100*impaired_group/tot,2),"normal_pct":round(100*normal_group/tot,2)})
+    split_rows.append({"group":"total","impaired":n11+n10,"normal":n01+n00,"total":n,
+        "impaired_pct":round(100*pA,2),"normal_pct":round(100*(1-pA),2)})
+    csv_write(OUT/"contingency_2x2.csv",split_rows,["group","impaired","normal","total","impaired_pct","normal_pct"])
+    csv_write(OUT/"contingency_joint_AB.csv",joint,["A","B","count","denominator"])
     csv_write(OUT/"group_probabilities.csv",group_rows,["group","volume_median_group","n_group","n_MCI_or_dementia","probability","percent","denominator_definition"])
     csv_write(OUT/"bernoulli_pmf.csv",pmf,["x","label","count","probability"])
     csv_write(OUT/"binomial_pmf.csv",binom,["k","probability"])
@@ -223,6 +331,8 @@ def main():
         cx=L+pw*(xx-x0)/dx;cy=T+ph*(y1-yy)/dy;a.append(f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="2.5" fill="#247ba0" fill-opacity=".35"/>')
     a += [svg_text(w/2,h-20,"MOCATOTS (score points)",14),svg_text(22,h/2,"Bilateral entorhinal volume (mm³)",13)]
     save_svg(FIG/"moca_volume_scatter.svg","\n".join(a),w,h)
+    new_figures([(r["MOCA"],r["VOL"],int(r["NACCUDSD"])) for r in eligible
+                 if r["MOCA"] is not None and r["VOL"] is not None and r["NACCUDSD"] is not None],result)
 
     write_report_tex(result)
     try: build_pdf(result)
@@ -231,55 +341,109 @@ def main():
 
 
 def write_report_tex(r):
-    c=r["contingency"]; p=r["probabilities"]; e=r["events"]; g=r["groups"]; d=r["continuous"]; a=r["association"]
-    tex=rf'''\documentclass[11pt]{{article}}
-\usepackage[margin=0.85in]{{geometry}}
-\usepackage{{booktabs,graphicx,amsmath,hyperref,caption,float}}
-\title{{Phase 2: Descriptive Probability Analysis of MoCA and Entorhinal Volume}}
-\author{{Statistics Project -- NACC UDS + MRI subset}}
-\date{{}}
-\begin{{document}}\maketitle
-\begin{{abstract}}This report describes empirical probabilities and distributions among supplied, linked participants aged 65 years or older. It examines dataset-coded cognitive status and bilateral entorhinal volume. The analysis is descriptive and does not estimate general-population prevalence or causal effects.\end{{abstract}}
-\section{{Research question and Phase 1 continuity}}
-Among unique participants aged at least 65 in the supplied linked NACC UDS and MRI subset, how do empirical probabilities of MCI or dementia vary across groups defined by bilateral entorhinal volume, and what are the distributions and linear association of MoCA score and volume? Phase 1's conventions are retained: NACCID as participant key; NACCAGE $\geq65$; MOCATOTS valid only in [0,30], without rounding or clipping; EDUC=99 unknown; and bilateral MRI measurement as the arithmetic mean of valid positive left and right values. NACCUDSD is coded 1=Normal, 2=Impaired not MCI, 3=MCI, and 4=Dementia.
-\section{{Data, unit, linkage, and limits}}
-Each CSV contains a single supplied row per unique NACCID. The script verifies uniqueness and agreement of NACCUDSD across files, links by ID, then applies the age rule. The main analysis retains this one record per participant. The files lack visit identifiers/dates and MRI scan dates; therefore this record cannot be established as a baseline, nor can contemporaneous UDS--MRI measurement be established. The UDS file is processed/imputed, but the imputation procedure and original missingness mask are unavailable; no blank cells do not prove that original observations were complete. The supplied subset is a clinical/research subset, not a probability sample of older adults generally.
-\begin{{table}}[H]\centering\caption{{Analytic flow and valid sample sizes}}\begin{{tabular}}{{lr}}\toprule Stage & Participants\\\midrule
-UDS input records & {r['flow'][0]['n']}\\ MRI input records & {r['flow'][1]['n']}\\ Matched unique participants & {r['flow'][2]['n']}\\ Age eligible ($\geq65$) & {r['flow'][3]['n']}\\ 2$\times$2 valid status and volume & {c['denominator']}\\ Valid MOCATOTS & {d['MOCATOTS_points']['n']}\\ Valid bilateral volume & {d['bilateral_entorhinal_volume_mm3']['n']}\\ Paired MoCA and volume & {a['n']}\\\bottomrule\end{{tabular}}\end{{table}}
-\section{{Events and empirical probabilities}}
-For each eligible participant record $r$, define $A(r)=1$ when NACCUDSD is 3 or 4 (MCI or dementia), and $B(r)=1$ when bilateral entorhinal volume is at or below the eligible cohort's linearly interpolated median, {e['volume_median_n']} valid measures, {e['B']}. Ties are assigned to $B=1$; {e['equal_to_median_n']} observations equal the threshold. $A$ is the supplied UDS classification, not a new clinical diagnosis. Both events use the common valid subset of $n={c['denominator']}$. Table~\ref{{tab:2x2}} gives counts.
-\begin{{table}}[H]\centering\caption{{Joint frequencies for A and B (common denominator $n={c['denominator']}$)}}\label{{tab:2x2}}\begin{{tabular}}{{lrrr}}\toprule & $B=1$ & $B=0$ & Total\\\midrule $A=1$ & {c['rows'][0]['count']} & {c['rows'][1]['count']} & {c['marginal_A']}\\ $A=0$ & {c['rows'][2]['count']} & {c['rows'][3]['count']} & {c['marginal_not_A']}\\ Total & {c['marginal_B']} & {c['marginal_not_B']} & {c['denominator']}\\\bottomrule\end{{tabular}}\end{{table}}
-\[P(A)=\frac{{{c['marginal_A']}}}{{{c['denominator']}}}={p['P_A']['value']:.4f},\quad P(B)=\frac{{{c['marginal_B']}}}{{{c['denominator']}}}={p['P_B']['value']:.4f},\quad P(A\cap B)=\frac{{{c['rows'][0]['count']}}}{{{c['denominator']}}}={p['P_A_and_B']['value']:.4f}.\]
-\[P(A\mid B)=\frac{{{c['rows'][0]['count']}}}{{{c['marginal_B']}}}={p['P_A_given_B']['value']:.4f};\quad P(A\mid B^c)=\frac{{{c['rows'][1]['count']}}}{{{c['marginal_not_B']}}}={p['P_A_given_not_B']['value']:.4f}.\]
-Among participants with $A=1$, the empirical probability of belonging to the at-or-below-median volume group is $P(B\mid A)={c['rows'][0]['count']}/{c['marginal_A']}={p['P_B_given_A']['value']:.4f}$. The observed conditional probability differs from the marginal; conditioning describes an empirical contrast and does not imply a causal effect.
-\section{{Group comparison and independence discussion}}
-The empirical probability of A is {g[0]['n_MCI_or_dementia']}/{g[0]['n_group']}={g[0]['probability']:.4f} ({g[0]['percent']:.1f}\%) at/below the volume median, and {g[1]['n_MCI_or_dementia']}/{g[1]['n_group']}={g[1]['probability']:.4f} ({g[1]['percent']:.1f}\%) above it. The denominator in each case is participants with age eligibility, valid bilateral positive volume, and valid NACCUDSD. Figure~\ref{{fig:group}} shows this comparison. The four-level status breakdown includes only six participants coded 2 (Impaired, not MCI) among the age-eligible cohort; detailed percentages for this small category are not emphasized.
-Empirical independence would suggest $P(A\cap B)\approx P(A)P(B)$. Here these values are {p['P_A_and_B']['value']:.4f} and {p['P_A_times_P_B']:.4f}; also $P(A\mid B)={p['P_A_given_B']['value']:.4f}$ versus $P(A)={p['P_A']['value']:.4f}$. This is an exploratory comparison of frequencies on the same subset, not a formal independence test.
-\section{{Bernoulli variable and hypothetical binomial count}}
-Let $X(r)=1\{{A(r)=1\}}$. Its empirical PMF is $P(X=0)={1-p['P_A']['value']:.4f}$ and $P(X=1)=p_A={p['P_A']['value']:.4f}$. Treating the observed cohort distribution as the empirical distribution, $E[X]=p={p['P_A']['value']:.4f}$ and $\operatorname{{Var}}(X)=p(1-p)={p['P_A']['value']*(1-p['P_A']['value']):.4f}$ (divisor-$n$ distribution variance). Table~\ref{{tab:pmf}} tabulates its counts and masses.
-\begin{{table}}[H]\centering\caption{{Empirical Bernoulli probability mass function}}\label{{tab:pmf}}\begin{{tabular}}{{lrr}}\toprule Outcome & Count & Probability\\\midrule No MCI/dementia & {c['marginal_not_A']} & {1-p['P_A']['value']:.4f}\\ MCI or dementia & {c['marginal_A']} & {p['P_A']['value']:.4f}\\\bottomrule\end{{tabular}}\end{{table}}
-For a fixed hypothetical $n=10$, define $Y=\sum_{{i=1}}^{{10}}X_i$ for independent Bernoulli draws with the same $p={p['P_A']['value']:.4f}$. Then $Y\sim\operatorname{{Binomial}}(10,p)$, $E[Y]=np={10*p['P_A']['value']:.3f}$ and $\operatorname{{Var}}(Y)=np(1-p)={10*p['P_A']['value']*(1-p['P_A']['value']):.3f}$. This model requires fixed trial count, independence, two outcomes, and constant success probability. It represents hypothetical independent draws; sampling distinct participants without replacement from this finite cohort is not exactly binomial. Estimating $p$ from this subset does not establish population-wide risk. Figure~\ref{{fig:binom}} plots the PMF. Repeated visits are not treated as independent trials.
-\section{{Continuous distributions and normal approximation}}
-MoCA is a bounded, discrete score (0--30), not literally continuous. For valid $n={d['MOCATOTS_points']['n']}$, mean={d['MOCATOTS_points']['mean']:.3f}, empirical variance (divisor $n$)={d['MOCATOTS_points']['variance_population_divisor_n']:.3f} points$^2$, median={d['MOCATOTS_points']['median']:.2f}; moment skewness={d['MOCATOTS_points']['skewness_moment']:.3f}. The 1.5$\times$IQR fences are [{d['MOCATOTS_points']['fence_low']:.2f}, {d['MOCATOTS_points']['fence_high']:.2f}] with {d['MOCATOTS_points']['outliers_1_5_iqr']} observations outside. Its negative skew, score bounds, and accumulation toward the upper end are visible in the plots and make a normal approximation unsuitable near the ceiling and tails.
-Bilateral entorhinal volume is positive quantitative MRI data in mm$^3$. For valid $n={d['bilateral_entorhinal_volume_mm3']['n']}$, mean={d['bilateral_entorhinal_volume_mm3']['mean']:.2f}, empirical variance (divisor $n$)={d['bilateral_entorhinal_volume_mm3']['variance_population_divisor_n']:.2f} (mm$^3$)$^2$, median={d['bilateral_entorhinal_volume_mm3']['median']:.2f}; moment skewness={d['bilateral_entorhinal_volume_mm3']['skewness_moment']:.3f}. The 1.5$\times$IQR fences are [{d['bilateral_entorhinal_volume_mm3']['fence_low']:.2f}, {d['bilateral_entorhinal_volume_mm3']['fence_high']:.2f}] mm$^3$, with {d['bilateral_entorhinal_volume_mm3']['outliers_1_5_iqr']} observations outside. Histograms and Q--Q plots (Figures~\ref{{fig:moca}}--\ref{{fig:vqq}}) show moderate positive skew and high-tail departures from normality. Outliers remain included; a normal approximation may describe central shape but is less suitable in tails.
-\begin{{figure}}[H]\centering\includegraphics[width=.9\linewidth]{{figures/phase2/group_probabilities.pdf}}\caption{{MCI or dementia probability by median-defined volume group; counts and group denominators shown.}}\label{{fig:group}}\end{{figure}}
-\begin{{figure}}[H]\centering\includegraphics[width=.88\linewidth]{{figures/phase2/binomial_pmf.pdf}}\caption{{Hypothetical $\operatorname{{Binomial}}(10,p)$ probability mass function.}}\label{{fig:binom}}\end{{figure}}
-\begin{{figure}}[H]\centering\includegraphics[width=.85\linewidth]{{figures/phase2/moca_histogram.pdf}}\caption{{Valid MOCATOTS histogram and fitted normal density overlay.}}\label{{fig:moca}}\end{{figure}}
-\begin{{figure}}[H]\centering\includegraphics[width=.85\linewidth]{{figures/phase2/volume_histogram.pdf}}\caption{{Valid bilateral volume histogram and fitted normal density overlay.}}\end{{figure}}
-\begin{{figure}}[H]\centering\includegraphics[width=.85\linewidth]{{figures/phase2/moca_qq.pdf}}\caption{{MoCA normal Q--Q plot.}}\end{{figure}}
-\begin{{figure}}[H]\centering\includegraphics[width=.85\linewidth]{{figures/phase2/volume_qq.pdf}}\caption{{Bilateral volume normal Q--Q plot.}}\label{{fig:vqq}}\end{{figure}}
-\section{{MoCA and MRI covariance}}
-For {a['n']} pairwise-complete age-eligible participants, sample covariance using denominator $n-1$ is {a['sample_covariance_MoCA_points_times_mm3']:.4f} score-points$\cdot$mm$^3$, and Pearson correlation is $r={a['Pearson_r']:.4f}$. The direction is positive and magnitude describes a modest linear association in this subset. Correlation measures linear association only and does not establish causation. Figure~\ref{{fig:scatter}} labels both measurements and displays the paired cases.
-\begin{{figure}}[H]\centering\includegraphics[width=.9\linewidth]{{figures/phase2/moca_volume_scatter.pdf}}\caption{{Pairwise-complete MoCA and bilateral entorhinal volume observations; descriptive fitted line.}}\label{{fig:scatter}}\end{{figure}}
-\section{{Bayes' theorem}}
-From the same table, $P(B\mid A)=n_{{11}}/n_A={c['rows'][0]['count']}/{c['marginal_A']}={p['P_B_given_A']['value']:.6f}$. Bayes' theorem gives $P(A\mid B)P(B)/P(A)=({p['P_A_given_B']['value']:.6f})({p['P_B']['value']:.6f})/({p['P_A']['value']:.6f})={p['bayes_rhs']:.6f}$. The computed sides differ by {p['bayes_identity_absolute_difference']:.2g}. This updates an event probability within this dataset-defined event system; it is not validated individual diagnostic prediction.
-\section{{Limitations and conclusion}}
-This is a descriptive analysis of a supplied clinical/research subset, not a population-representative sample. The files cannot verify baseline status, visit timing, or UDS--MRI contemporaneity. UDS values are processed/imputed; the original missingness mask and imputation method are unavailable. The median split is a descriptive partition, and empirical probabilities are not causal or clinical predictions. Normal plots are visual assessments; no observations were removed under the outlier rule. The data show differing empirical frequencies across volume groups and a positive descriptive linear association between MoCA and volume, subject to these design limits.
-\section*{{Reproducibility and data definitions}}
-Run \texttt{{python3 src/phase2\_analysis.py}} (or the bundled GapGPT Python runtime command documented in README) from the repository root. Results and audit tables are in \texttt{{reports/phase2/}}, figures in \texttt{{figures/phase2/}}. The original participant-level CSVs are not copied into generated reports. Phase 1 files remain separate.
-\begin{{thebibliography}}{{9}}\bibitem{{data}}National Alzheimer’s Coordinating Center. Prepared course-subset CSVs: \texttt{{udslong\_imputed.csv}} and \texttt{{mriscanclean.csv}}. Data dictionary and preprocessing details were not supplied with this repository.\end{{thebibliography}}
-\end{{document}}
+    c=r["contingency"]; p=r["probabilities"]; e=r["events"]; g=r["groups"]; d=r["continuous"]
+    bv=r["bayes_verification"]; co=r["correlation"]; nm=r["normality"]; bi=r["binomial"]
+    n=c["denominator"]; n11,n10,n01,n00=(x["count"] for x in c["rows"])
+    nA,nnA,nB,nnB=c["marginal_A"],c["marginal_not_A"],c["marginal_B"],c["marginal_not_B"]
+    pA=p["P_A"]["value"]; pB=p["P_B"]["value"]
+    sci=lambda x: ("%.2e"%x).replace("e-","\\times10^{-").replace("e+","\\times10^{")+"}"
+    V={"n":n,"n11":n11,"n10":n10,"n01":n01,"n00":n00,"nA":nA,"nnA":nnA,"nB":nB,"nnB":nnB,
+       "pA":f"{pA:.4f}","pnA":f"{1-pA:.4f}","pB":f"{pB:.4f}","pnB":f"{1-pB:.4f}","pAB":f"{p['P_A_and_B']['value']:.4f}",
+       "pApB":f"{p['P_A_times_P_B']:.4f}","pA_B":f"{p['P_A_given_B']['value']:.4f}","pA_nB":f"{p['P_A_given_not_B']['value']:.4f}",
+       "pB_A":f"{bv['P_B_given_A']:.4f}","pB_nA":f"{bv['P_B_given_not_A']:.4f}","pBder":f"{bv['P_B_derived']:.4f}",
+       "pAbayes":f"{bv['P_A_given_B_bayes']:.4f}","pAdirect":f"{bv['P_A_given_B_direct']:.4f}",
+       "pA_pct":f"{100*pA:.1f}","pA_B_pct":f"{100*p['P_A_given_B']['value']:.1f}","pA_nB_pct":f"{100*p['P_A_given_not_B']['value']:.1f}",
+       "lowA_pct":f"{100*n11/(n11+n01):.2f}","lowN_pct":f"{100*n01/(n11+n01):.2f}","highA_pct":f"{100*n10/(n10+n00):.2f}","highN_pct":f"{100*n00/(n10+n00):.2f}",
+       "totA_pct":f"{100*pA:.2f}","totN_pct":f"{100*(1-pA):.2f}","nlow":n11+n01,"nhigh":n10+n00,
+       "median":f"{e['median_mm3']:.0f}","ties":e["equal_to_median_n"],"nvol":d["bilateral_entorhinal_volume_mm3"]["n"],"nmoca":d["MOCATOTS_points"]["n"],
+       "flow0":r["flow"][0]["n"],"flow1":r["flow"][1]["n"],"flow2":r["flow"][2]["n"],"flow3":r["flow"][3]["n"],
+       "EY":f"{bi['expected']:.3f}","VarY":f"{bi['variance']:.3f}","binn":bi["n"],"tenpct":f"{100*bi['n']/n:.1f}",
+       "msk":f"{nm['moca_skewness']:.3f}","mku":f"{nm['moca_kurtosis']:.3f}","vsk":f"{nm['volume_skewness']:.3f}","vku":f"{nm['volume_kurtosis']:.3f}",
+       "msp":sci(nm["moca_shapiro_p"]),"vsp":sci(nm["volume_shapiro_p"]),"mW":f"{nm['moca_shapiro_W']:.3f}","vW":f"{nm['volume_shapiro_W']:.3f}",
+       "mmean":f"{d['MOCATOTS_points']['mean']:.2f}","vmean":f"{d['bilateral_entorhinal_volume_mm3']['mean']:.1f}",
+       "cov":f"{co['covariance']:.2f}","pr":f"{co['pearson_r']:.4f}","pp":sci(co["pearson_p"]),"sr":f"{co['spearman_r']:.4f}","sp":sci(co["spearman_p"]),"cn":co["n"],
+       "r2":f"{co['pearson_r']**2:.3f}"}
+    tex=r'''\documentclass[11pt]{article}
+\usepackage[margin=0.85in]{geometry}
+\usepackage{booktabs,graphicx,amsmath,amssymb,hyperref,caption,float}
+\graphicspath{{../figures/phase2/}}
+\title{Phase 2: Probability Analysis of MoCA and Entorhinal Volume}
+\author{Statistics Project -- NACC UDS + MRI subset}
+\date{}
+\begin{document}\maketitle
+\begin{abstract}This report describes empirical probabilities, Bayes' theorem, a binomial model, normality checks, and the covariance of MoCA score and bilateral entorhinal volume among linked participants aged 65 years or older. The analysis is descriptive and does not estimate general-population prevalence or causal effects. Figure paths are relative to the \texttt{reports/} directory, so compile with \texttt{cd reports \&\& pdflatex phase2.tex}.\end{abstract}
+
+\section{Introduction and biomedical context}
+Atrophy of the entorhinal cortex is among the earliest structural changes in Alzheimer's disease, and it precedes widespread neocortical loss. The Montreal Cognitive Assessment (MoCA) is a brief cognitive screening instrument that is sensitive to mild cognitive impairment. If smaller entorhinal volume goes together with worse cognition, then knowing a person's volume group should change the probability that the person has MCI or dementia. Probability theory states that question precisely: it gives the prior $P(A)$, the conditional probability $P(A\mid B)$ and a rule, Bayes' theorem, for moving between $P(B\mid A)$ and $P(A\mid B)$. The same cohort supports a distribution check of both measurements and a covariance estimate. Among unique participants aged at least 65 in the supplied linked subset, the question is: how do empirical probabilities of MCI or dementia vary across entorhinal volume groups, and how are MoCA and volume distributed and associated? Phase 1 conventions are retained: NACCID is the participant key, NACCAGE $\geq65$, MOCATOTS is valid only in $[0,30]$, and bilateral volume is the arithmetic mean of valid positive left and right values. NACCUDSD codes are 1 Normal, 2 Impaired not MCI, 3 MCI, 4 Dementia.
+
+\section{Data, linkage, and sample sizes}
+Each CSV has one row per unique NACCID. The script checks uniqueness and NACCUDSD agreement, links by ID, and applies the age rule. The files lack visit identifiers, visit dates, and MRI scan dates, so baseline status and UDS--MRI contemporaneity cannot be established. The UDS file is processed and imputed, and the imputation method is not available. The subset is a clinical/research subset, not a probability sample of older adults.
+\begin{table}[H]\centering\caption{Analytic flow and valid sample sizes}\begin{tabular}{lr}\toprule Stage & Participants\\\midrule
+UDS input records & <<flow0>>\\ MRI input records & <<flow1>>\\ Matched unique participants & <<flow2>>\\ Age eligible ($\geq65$) & <<flow3>>\\ Valid status and volume (2$\times$2 table) & <<n>>\\ Valid MOCATOTS & <<nmoca>>\\ Valid bilateral volume & <<nvol>>\\ Paired MoCA and volume & <<cn>>\\\bottomrule\end{tabular}\end{table}
+
+\section{Events and basic probabilities}
+Define the two events on the common valid subset of $n=<<n>>$ participants:
+\[A=\{\mathrm{NACCUDSD}\in\{3,4\}\}\ \text{(MCI or dementia)},\qquad B=\{\mathrm{bilateral\_entorhinal\_volume}\leq <<median>>\ \mathrm{mm}^3\}\ \text{(at or below the median)}.\]
+The threshold <<median>>~mm$^3$ is the median of the <<nvol>> valid volumes. Because <<ties>> observations equal the median exactly, ties go to $B$, so $B$ contains <<nB>> participants rather than exactly half. Table~\ref{tab:2x2} shows counts and row percentages.
+\begin{table}[H]\centering\caption{Cognitive status by volume group, counts and row percentages ($n=<<n>>$)}\label{tab:2x2}\begin{tabular}{lrrrrr}\toprule Group & Impaired ($A$) & Normal ($A^c$) & Total & Impaired \% & Normal \%\\\midrule
+Low volume ($B$) & <<n11>> & <<n01>> & <<nlow>> & <<lowA_pct>> & <<lowN_pct>>\\ High volume ($B^c$) & <<n10>> & <<n00>> & <<nhigh>> & <<highA_pct>> & <<highN_pct>>\\ Total & <<nA>> & <<nnA>> & <<n>> & <<totA_pct>> & <<totN_pct>>\\\bottomrule\end{tabular}\end{table}
+\begin{align*}
+P(A)&=\tfrac{<<nA>>}{<<n>>}=<<pA>>, & P(A^c)&=1-P(A)=\tfrac{<<nnA>>}{<<n>>}=<<pnA>>,\\
+P(B)&=\tfrac{<<nB>>}{<<n>>}=<<pB>>, & P(B^c)&=1-P(B)=\tfrac{<<nnB>>}{<<n>>}=<<pnB>>,\\
+P(A\cap B)&=\tfrac{<<n11>>}{<<n>>}=<<pAB>>, & P(A)P(B)&=<<pApB>>.
+\end{align*}
+Since $P(A\cap B)\neq P(A)P(B)$, the two events are not independent in this subset. This is a comparison of frequencies, not a formal independence test. Figure~\ref{fig:group} shows the group probabilities.
+\begin{figure}[H]\centering\includegraphics[width=.8\linewidth]{../figures/phase2/group_probabilities.pdf}\caption{Empirical probability of MCI or dementia in the low and high volume groups.}\label{fig:group}\end{figure}
+
+\section{Bayes' theorem}
+The conditional probabilities come from the table: $P(B\mid A)=\tfrac{<<n11>>}{<<nA>>}=<<pB_A>>$ and $P(B\mid A^c)=\tfrac{<<n01>>}{<<nnA>>}=<<pB_nA>>$. Bayes' theorem with the law of total probability gives
+\[P(A\mid B)=\frac{P(B\mid A)\,P(A)}{P(B\mid A)\,P(A)+P(B\mid A^c)\,P(A^c)}.\]
+Substituting the values step by step:
+\begin{align*}
+P(B)&=(<<pB_A>>)(<<pA>>)+(<<pB_nA>>)(<<pnA>>)=<<pBder>>,\\
+P(A\mid B)&=\frac{(<<pB_A>>)(<<pA>>)}{<<pBder>>}=<<pAbayes>>.
+\end{align*}
+The direct table ratio is $P(A\mid B)=\tfrac{<<n11>>}{<<nB>>}=<<pAdirect>>$ and the derived marginal $P(B)=<<pBder>>$ equals the counted $P(B)=<<pB>>$, so the two routes agree (script check: \texttt{match = <<match>>}). In words: the probability that a person with low entorhinal volume has MCI or dementia rises from the base rate of <<pA_pct>>\% to <<pA_B_pct>>\%, whereas for high volume it is <<pA_nB_pct>>\%. Figure~\ref{fig:bayes} compares these values with the prior. This is an event frequency calculation in this dataset, not a validated diagnostic rule.
+\begin{figure}[H]\centering\includegraphics[width=.65\linewidth]{../figures/phase2/bayes_posterior.pdf}\caption{Posterior probabilities of impairment by volume group against the prior $P(A)$.}\label{fig:bayes}\end{figure}
+
+\section{Binomial distribution}
+Let $Y$ count outcomes of $A$ among $m=<<binn>>$ independent draws with success probability $p=P(A)=<<pA>>$. Then
+\[P(Y=k)=\binom{m}{k}p^k(1-p)^{m-k},\quad E[Y]=mp=<<EY>>,\quad \operatorname{Var}(Y)=mp(1-p)=<<VarY>>.\]
+The binomial model needs fixed $m$, independent trials, a constant $p$, and two outcomes. Drawing distinct participants from the finite cohort is sampling without replacement, so draws are not exactly independent and the exact model is hypergeometric. The usual 10\% rule says the binomial is a good approximation when the sample is less than 10\% of the population. Here $m/n=<<tenpct>>\%$, which satisfies the rule. Using all $n=<<n>>$ participants would violate it, so the binomial is used only for the hypothetical $m=<<binn>>$ draws.
+\begin{figure}[H]\centering\includegraphics[width=.8\linewidth]{../figures/phase2/binomial_pmf.pdf}\caption{Binomial$(<<binn>>,<<pA>>)$ probability mass function.}\end{figure}
+
+\section{Normal distribution and the central limit theorem}
+Table~\ref{tab:norm} lists shape statistics and Shapiro--Wilk results (computed in Python). Excess kurtosis is 0 for a normal distribution.
+\begin{table}[H]\centering\caption{Normality statistics}\label{tab:norm}\begin{tabular}{lrrrrrr}\toprule Variable & $n$ & Mean & Skewness & Excess kurtosis & Shapiro $W$ & Shapiro $p$\\\midrule
+MoCA (points) & <<nmoca>> & <<mmean>> & <<msk>> & <<mku>> & <<mW>> & $<<msp>>$\\ Volume (mm$^3$) & <<nvol>> & <<vmean>> & <<vsk>> & <<vku>> & <<vW>> & $<<vsp>>$\\\bottomrule\end{tabular}\end{table}
+Both Shapiro--Wilk tests reject normality. MoCA is strongly left skewed with a ceiling near 30, and volume is mildly right skewed with heavy tails. The Q--Q plots in Figures~\ref{fig:mqq} and~\ref{fig:vqq} show the same departures in the tails. With $n=<<n>>$ the central limit theorem implies that the sample mean $\bar X$ is approximately normal with mean $\mu$ and variance $\sigma^2/n$ even when the data are not normal, so inference about means does not require normal data. The histograms are in Figures~\ref{fig:mh} and~\ref{fig:vh}.
+\begin{figure}[H]\centering\includegraphics[width=.75\linewidth]{../figures/phase2/moca_histogram.pdf}\caption{MoCA histogram with fitted normal density.}\label{fig:mh}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=.75\linewidth]{../figures/phase2/moca_qq.pdf}\caption{Normal Q--Q plot of MoCA. The tails depart from the line because of left skew and the ceiling.}\label{fig:mqq}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=.75\linewidth]{../figures/phase2/volume_histogram.pdf}\caption{Bilateral entorhinal volume histogram with fitted normal density.}\label{fig:vh}\end{figure}
+\begin{figure}[H]\centering\includegraphics[width=.75\linewidth]{../figures/phase2/volume_qq.pdf}\caption{Normal Q--Q plot of bilateral volume. The upper tail is heavier than normal.}\label{fig:vqq}\end{figure}
+
+\section{Covariance and correlation}
+For paired observations $(x_i,y_i)$ of MoCA and volume, the sample covariance and the Pearson correlation are
+\[\hat\sigma_{XY}=\frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar x)(y_i-\bar y),\qquad r=\frac{\hat\sigma_{XY}}{\hat\sigma_X\hat\sigma_Y}.\]
+Only <<cn>> participants have both a valid MoCA and a valid volume, so $n=<<cn>>$ here. The results are $\hat\sigma_{XY}=<<cov>>$ points$\cdot$mm$^3$, Pearson $r=<<pr>>$ ($p=<<pp>>$) and Spearman $\rho=<<sr>>$ ($p=<<sp>>$). The association is positive: larger entorhinal volume goes with higher MoCA. It is weak to modest, since $r^2=<<r2>>$ means about <<r2pct>>\% of the variance is shared linearly. Spearman is slightly larger than Pearson, which is consistent with a skewed MoCA. Correlation does not imply causation: age, education, and other factors may influence both measures. Figure~\ref{fig:scatter} shows the data with the fitted line and its 95\% confidence band; MoCA values are integers, so a small horizontal jitter is applied for display only.
+\begin{figure}[H]\centering\includegraphics[width=.9\linewidth]{../figures/phase2/moca_volume_scatter_regression.pdf}\caption{MoCA versus bilateral entorhinal volume colored by NACCUDSD, with linear regression and 95\% confidence band.}\label{fig:scatter}\end{figure}
+
+\section{Limitations}
+The median threshold for $B$ is a convenient but arbitrary choice. A different cut point, or treating volume as continuous, could change $P(A\mid B)$. Ties at the median also make the two groups unequal in size.
+
+The probability calculations treat participants as independent. The participants come from several contributing centers and may share scanners, protocols, and referral patterns, so this assumption may be violated and standard errors and p-values may be too optimistic.
+
+Pearson correlation measures linear association and is sensitive to outliers and to nonlinearity. MoCA is bounded and left skewed, so the linear summary may miss the real shape of the relationship; Spearman is reported as a rank based check.
+
+MoCA is a screening instrument, not a definitive diagnosis. The classification $A$ is the dataset's NACCUDSD code, and all probabilities describe this supplied clinical/research subset rather than older adults in general.
+
+\section*{Reproducibility}
+Run \texttt{python src/phase2\_analysis.py} from the repository root. Numbers in this report are taken from \texttt{reports/phase2/phase2\_results.json}. The PDF \texttt{reports/phase2.pdf} was produced with ReportLab because no TeX engine was available; this \texttt{.tex} source has not been compiled in that environment.
+\end{document}
 '''
+    V["match"]=str(bv["match"]).lower(); V["r2pct"]=f"{100*co['pearson_r']**2:.1f}"
+    for k,v in V.items(): tex=tex.replace(f"<<{k}>>",str(v))
+    assert "<<" not in tex
     (ROOT/"reports"/"phase2.tex").write_text(tex,encoding="utf-8")
 
 
@@ -386,41 +550,56 @@ def build_pdf(r):
     def section(t):P(f"<b>{t}</b>","Heading2")
     def table(data,widths=None):
         t=Table(data,colWidths=widths,repeatRows=1);t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#18324b")),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),8),("GRID",(0,0),(-1,-1),.35,colors.HexColor("#ccd5de")),("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#f3f6f8")]),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]));story.append(t);story.append(Spacer(1,10))
-    P("Phase 2: Descriptive Probability Analysis of MoCA and Entorhinal Volume","Title")
-    P("Research question: Among linked participants aged 65 years or older, how do empirical probabilities of MCI or dementia vary across bilateral entorhinal-volume groups, and what are the distributions and linear association of MoCA and volume?")
-    section("Data, continuity, and analytic flow")
-    P("The participant key is NACCID. The supplied records are retained one per unique participant after uniqueness checks. The age restriction is NACCAGE ≥ 65, matching Phase 1. MOCATOTS values outside [0,30] are invalid; valid fractional scores are retained. EDUC=99 is unknown. Bilateral volume is the mean of positive left and right entorhinal volumes.")
-    P("The data lack visit IDs/dates and MRI scan dates, so the supplied row cannot be confirmed as baseline and UDS/MRI contemporaneity cannot be established. The UDS file is processed/imputed; the method and original missingness mask are unavailable. The subset is not representative of all older adults.")
+    bv=r["bayes_verification"];co=r["correlation"];nm=r["normality"];bi=r["binomial"];ev=r["events"]
+    p=r["probabilities"];c=r["contingency"];n=c["denominator"]
+    n11,n10,n01,n00=(x["count"] for x in c["rows"]);pA=p["P_A"]["value"];pB=p["P_B"]["value"]
+    def sci(x):return f"{x:.2e}"
+    def fig(name,w,cap):
+        from reportlab.lib.utils import ImageReader
+        iw,ih=ImageReader(str(FIG/(name+".png"))).getSize()
+        story.append(Image(str(FIG/(name+".png")),width=w,height=w*ih/iw));P(f"<i>{cap}</i>","Small")
+    P("Phase 2: Probability Analysis of MoCA and Entorhinal Volume","Title")
+    section("1. Introduction and biomedical context")
+    P("Atrophy of the entorhinal cortex is among the earliest structural changes in Alzheimer's disease, and MoCA is a brief cognitive screening instrument. If smaller entorhinal volume goes with worse cognition, the volume group should change the probability of MCI or dementia. Probability theory makes this precise through P(A), P(A|B), and Bayes' theorem. The same cohort supports distribution checks and a covariance estimate. Question: among linked participants aged 65 or older, how do empirical probabilities of MCI or dementia vary across volume groups, and how are MoCA and volume distributed and associated?")
+    P("Conventions follow Phase 1: NACCID is the participant key, NACCAGE ≥ 65, MOCATOTS is valid only in [0,30], and bilateral volume is the mean of positive left and right entorhinal volumes. The files lack visit IDs/dates and MRI scan dates, so baseline status and UDS/MRI contemporaneity cannot be established. The UDS file is processed/imputed, and the subset is a clinical/research subset, not a representative sample.","Small")
     table([["Stage","n"]]+[[q["step"],str(q["n"])] for q in r["flow"]],[5.2*inch,1.1*inch])
-    section("Events and joint probabilities")
-    p=r["probabilities"];c=r["contingency"]
-    P(f"A=1 when NACCUDSD is 3 (MCI) or 4 (dementia), a dataset-coded classification and not a new clinical diagnosis. B=1 when bilateral volume is at or below the age-eligible median, {r['events']['volume_median_n']} valid observations with a median of {r['events']['median_mm3']:.1f} mm³. Linear interpolation defines the median; {r['events']['equal_to_median_n']} tied value(s) are assigned to B=1. The common valid 2×2 denominator is {c['denominator']}.")
-    table([["","B=1","B=0","Total"],["A=1",str(c["rows"][0]["count"]),str(c["rows"][1]["count"]),str(c["marginal_A"])],["A=0",str(c["rows"][2]["count"]),str(c["rows"][3]["count"]),str(c["marginal_not_A"])],["Total",str(c["marginal_B"]),str(c["marginal_not_B"]),str(c["denominator"])]])
+    section("2. Events and basic probabilities")
+    P(f"A = {{NACCUDSD ∈ {{3,4}}}} (MCI or dementia). B = {{bilateral entorhinal volume ≤ {ev['median_mm3']:.0f} mm³}} (at or below the median of {ev['volume_median_n']} valid volumes). {ev['equal_to_median_n']} observations equal the median and are assigned to B, so B has {n11+n01} members rather than exactly half. Common denominator n={n}.")
+    table([["Group","Impaired (A)","Normal (A^c)","Total","Impaired %","Normal %"],
+           ["Low volume (B)",str(n11),str(n01),str(n11+n01),f"{100*n11/(n11+n01):.2f}",f"{100*n01/(n11+n01):.2f}"],
+           ["High volume (B^c)",str(n10),str(n00),str(n10+n00),f"{100*n10/(n10+n00):.2f}",f"{100*n00/(n10+n00):.2f}"],
+           ["Total",str(n11+n10),str(n01+n00),str(n),f"{100*pA:.2f}",f"{100*(1-pA):.2f}"]])
+    P(f"P(A) = {n11+n10}/{n} = {pA:.4f}; P(A^c) = {n01+n00}/{n} = {1-pA:.4f}; P(B) = {c['marginal_B']}/{n} = {pB:.4f}; P(B^c) = {c['marginal_not_B']}/{n} = {1-pB:.4f}; P(A∩B) = {n11}/{n} = {p['P_A_and_B']['value']:.4f}. P(A)P(B) = {p['P_A_times_P_B']:.4f} differs from P(A∩B), so A and B are not independent in this subset (a frequency comparison, not a formal test).")
+    fig("group_probabilities",360,"Figure 1. Empirical probability of MCI or dementia by volume group.")
     story.append(PageBreak())
-    P(f"P(A)={p['P_A']['numerator']}/{p['P_A']['denominator']}={p['P_A']['value']:.4f}; P(B)={p['P_B']['numerator']}/{p['P_B']['denominator']}={p['P_B']['value']:.4f}; P(A∩B)={p['P_A_and_B']['numerator']}/{p['P_A_and_B']['denominator']}={p['P_A_and_B']['value']:.4f}. P(A|B)={p['P_A_given_B']['numerator']}/{p['P_A_given_B']['denominator']}={p['P_A_given_B']['value']:.4f}; P(A|not B)={p['P_A_given_not_B']['numerator']}/{p['P_A_given_not_B']['denominator']}={p['P_A_given_not_B']['value']:.4f}. These are empirical contrasts, not causal effects.")
-    section("Group comparison and independence")
-    P(f"In the lower-volume group, A occurs {r['groups'][0]['n_MCI_or_dementia']}/{r['groups'][0]['n_group']}={r['groups'][0]['percent']:.1f}%; above the median it occurs {r['groups'][1]['n_MCI_or_dementia']}/{r['groups'][1]['n_group']}={r['groups'][1]['percent']:.1f}%. The six age-eligible code-2 observations form a small original status category.")
-    story.append(Image(str(FIG/"group_probabilities.png"),width=440,height=254));story.append(Spacer(1,8))
-    P(f"P(A∩B)={p['P_A_and_B']['value']:.4f} and P(A)P(B)={p['P_A_times_P_B']:.4f}; P(A|B)={p['P_A_given_B']['value']:.4f} differs from P(A)={p['P_A']['value']:.4f}. This is an exploratory same-subset frequency comparison, not a formal test.")
-    section("Bernoulli and binomial model")
-    P(f"X=1{{A}} has empirical PMF P(X=0)={1-p['P_A']['value']:.4f}, P(X=1)={p['P_A']['value']:.4f}. E[X]={p['P_A']['value']:.4f} and empirical distribution Var(X)=p(1-p)={p['P_A']['value']*(1-p['P_A']['value']):.4f} with divisor n. For hypothetical n=10 independent draws, Y~Binomial(10,p), E[Y]={r['binomial']['expected']:.3f} and Var(Y)={r['binomial']['variance']:.3f}. This requires fixed n, independent trials, constant p, and two outcomes; distinct finite-cohort draws without replacement are not exactly binomial. No repeated visits are treated as trials.")
-    table([["x","Outcome","Count","Empirical probability"]]+[[str(z["x"]),z["label"],str(z["count"]),f"{z['probability']:.4f}"] for z in r["bernoulli"]["pmf"]])
-    story.append(Image(str(FIG/"binomial_pmf.png"),width=440,height=254));story.append(Spacer(1,8))
-    section("Continuous measures and normal approximation")
-    for name,s,unit in [("MOCATOTS",r["continuous"]["MOCATOTS_points"],"score points"),("Bilateral entorhinal volume",r["continuous"]["bilateral_entorhinal_volume_mm3"],"mm³")]:
-        shape="MoCA's distribution is left-skewed with concentration near its upper bound, so a normal approximation is poor near the ceiling and in the tails." if name=="MOCATOTS" else "Volume is mildly right-skewed with a longer upper tail; the central histogram is closer to bell-shaped than its extremes, so a normal approximation is only a rough central summary."
-        P(f"{name}: n={s['n']}, mean={s['mean']:.3f}, empirical variance (divisor n)={s['variance_population_divisor_n']:.3f}, median={s['median']:.3f}, moment skewness={s['skewness_moment']:.3f}, 1.5×IQR fences=[{s['fence_low']:.3f}, {s['fence_high']:.3f}] {unit}, outliers outside fences={s['outliers_1_5_iqr']}. All values are retained. {shape}","Small")
-    for stem in ("moca","volume"):
-        story.append(Image(str(FIG/(stem+"_histogram.png")),width=420,height=260));story.append(Spacer(1,5))
-        story.append(Image(str(FIG/(stem+"_qq.png")),width=420,height=260));story.append(Spacer(1,7))
-    section("MoCA and volume covariance")
-    P(f"For n={r['association']['n']} pairwise-complete participants, sample covariance (n−1 denominator)={r['association']['sample_covariance_MoCA_points_times_mm3']:.4f} score-points·mm³ and Pearson r={r['association']['Pearson_r']:.4f}. The positive association describes linear co-variation, not causation.")
-    story.append(Image(str(FIG/"moca_volume_scatter.png"),width=440,height=274))
-    story.append(PageBreak());section("Bayes identity, limitations, and conclusion")
-    P(f"Starting from marginal P(B), observing A updates it to P(B|A)={c['rows'][0]['count']}/{c['marginal_A']}={p['P_B_given_A']['value']:.6f}. Bayes gives P(A|B)P(B)/P(A)={p['P_A_given_B']['value']:.6f}×{p['P_B']['value']:.6f}/{p['P_A']['value']:.6f}={p['bayes_rhs']:.6f}; absolute difference={p['bayes_identity_absolute_difference']:.2g}. This is a dataset event calculation, not validated diagnostic prediction.")
-    P("The available files cannot establish baseline status or temporal alignment. Original missingness and imputation details are unavailable. Probabilities apply only to the supplied eligible clinical/research subset. No significance tests, confidence intervals, or causal estimates are used.")
-    P("Data definitions follow the supplied project data guide and column conventions in data/README.md; original NACC/SCAN codebooks and the assignment PDF were not included in the repository.","Small")
-    P("Reproduce with python3 src/phase2_analysis.py using the documented runtime. Auditable JSON and CSV tables are in reports/phase2; figures are in figures/phase2.","Small")
+    section("3. Bayes' theorem")
+    P("P(A|B) = P(B|A)·P(A) / [P(B|A)·P(A) + P(B|A^c)·P(A^c)]")
+    P(f"P(B|A) = {n11}/{n11+n10} = {bv['P_B_given_A']:.4f}; P(B|A^c) = {n01}/{n01+n00} = {bv['P_B_given_not_A']:.4f}. Total probability: P(B) = ({bv['P_B_given_A']:.4f})({pA:.4f}) + ({bv['P_B_given_not_A']:.4f})({1-pA:.4f}) = {bv['P_B_derived']:.4f}. Then P(A|B) = ({bv['P_B_given_A']:.4f})({pA:.4f}) / {bv['P_B_derived']:.4f} = {bv['P_A_given_B_bayes']:.4f}.")
+    P(f"The direct table ratio is {n11}/{c['marginal_B']} = {bv['P_A_given_B_direct']:.4f}, and the derived P(B) matches the counted {pB:.4f}; the two routes agree (match = {bv['match']}). Interpretation: the probability that a person with low entorhinal volume has MCI or dementia rises from the base rate of {100*pA:.1f}% to {100*bv['P_A_given_B_bayes']:.1f}%; for high volume it is {100*p['P_A_given_not_B']['value']:.1f}%. This is a dataset event frequency calculation, not a validated diagnostic rule.")
+    fig("bayes_posterior",340,"Figure 2. Posterior probability of impairment by volume group against the prior P(A).")
+    section("4. Binomial distribution")
+    P(f"For m={bi['n']} independent draws with p=P(A)={pA:.4f}: P(Y=k) = C(m,k) p^k (1-p)^(m-k), E[Y] = mp = {bi['expected']:.3f}, Var(Y) = mp(1-p) = {bi['variance']:.3f}. The model requires fixed m, independent trials, constant p, and two outcomes. Drawing distinct participants from this finite cohort is sampling without replacement, so independence does not hold exactly (the exact model is hypergeometric). The 10% rule says the binomial approximates well when the sample is under 10% of the population; here m/n = {100*bi['n']/n:.1f}%, which satisfies it, whereas using all {n} participants would not.")
+    fig("binomial_pmf",340,f"Figure 3. Binomial({bi['n']}, {pA:.3f}) probability mass function.")
+    story.append(PageBreak())
+    section("5. Normal distribution and the central limit theorem")
+    table([["Variable","n","Skewness","Excess kurtosis","Shapiro W","Shapiro p"],
+           ["MoCA (points)",str(nm["moca_n"]),f"{nm['moca_skewness']:.3f}",f"{nm['moca_kurtosis']:.3f}",f"{nm['moca_shapiro_W']:.3f}",sci(nm["moca_shapiro_p"])],
+           ["Volume (mm³)",str(nm["volume_n"]),f"{nm['volume_skewness']:.3f}",f"{nm['volume_kurtosis']:.3f}",f"{nm['volume_shapiro_W']:.3f}",sci(nm["volume_shapiro_p"])]])
+    P(f"Both Shapiro-Wilk tests reject normality. MoCA is strongly left skewed with a ceiling near 30; volume is mildly right skewed with heavy tails. With n={n}, the central limit theorem makes the sample mean approximately normal even when the data are not, so inference about means does not require normal data. The Q-Q plots show the tail departures.")
+    fig("moca_histogram",300,"Figure 4. MoCA histogram with fitted normal density.")
+    fig("moca_qq",300,"Figure 5. Normal Q-Q plot of MoCA; the tails depart because of left skew and the ceiling.")
+    fig("volume_histogram",300,"Figure 6. Bilateral volume histogram with fitted normal density.")
+    fig("volume_qq",300,"Figure 7. Normal Q-Q plot of bilateral volume; the upper tail is heavier than normal.")
+    section("6. Covariance and correlation")
+    P("Sample covariance: σ̂_XY = (1/(n-1)) Σ (x_i − x̄)(y_i − ȳ). Pearson correlation: r = σ̂_XY / (σ̂_X σ̂_Y).")
+    P(f"Only {co['n']} participants have both a valid MoCA and valid volume (8 lack MoCA), so n={co['n']}. σ̂_XY = {co['covariance']:.2f} points·mm³; Pearson r = {co['pearson_r']:.4f} (p = {sci(co['pearson_p'])}); Spearman ρ = {co['spearman_r']:.4f} (p = {sci(co['spearman_p'])}). The association is positive and weak to modest: r² = {co['pearson_r']**2:.3f}, about {100*co['pearson_r']**2:.1f}% shared variance. Correlation is not causation; age, education, and other factors may affect both measures. MoCA values are integers, so display jitter of ±0.2 is applied in the figure only.")
+    fig("moca_volume_scatter_regression",400,"Figure 8. MoCA versus bilateral volume colored by NACCUDSD, with linear regression and 95% confidence band.")
+    section("7. Limitations")
+    P("The median threshold for B is a convenient but arbitrary choice; another cut point, or treating volume as continuous, could change P(A|B). Ties at the median also make the groups unequal.")
+    P("The calculations treat participants as independent. Participants come from several contributing centers and may share scanners, protocols, and referral patterns, so this assumption may be violated and p-values may be too optimistic.")
+    P("Pearson correlation measures linear association and is sensitive to outliers and nonlinearity. MoCA is bounded and left skewed, so Spearman is reported as a rank based check.")
+    P("MoCA is a screening instrument, not a definitive diagnosis. A is the dataset's NACCUDSD code, and all probabilities describe this supplied clinical/research subset.")
+    P("Reproduce with python src/phase2_analysis.py. This PDF was generated with ReportLab because no TeX engine was available; reports/phase2.tex is the LaTeX source and was not compiled here.","Small")
     SimpleDocTemplate(str(ROOT/"reports"/"phase2.pdf"),pagesize=letter,rightMargin=.65*inch,leftMargin=.65*inch,topMargin=.6*inch,bottomMargin=.6*inch,title="Phase 2 Probability Analysis").build(story)
 
 
