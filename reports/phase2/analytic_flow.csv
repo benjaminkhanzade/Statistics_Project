@@ -1,0 +1,9 @@
+step,n
+UDS input records,1237
+MRI input records,1237
+matched unique participants,1237
+age eligible (NACCAGE >= 65),864
+valid cognitive-status and bilateral-volume 2x2 subset,864
+valid MOCATOTS (0 to 30),856
+valid bilateral volume,864
+paired valid MoCA and volume,856

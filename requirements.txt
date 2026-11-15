@@ -1,6 +1,9 @@
 # Reproducible descriptive analysis uses Python standard library only.
-# For PDF generation:
+# Phase 2 vector plots/report PDF and page rendering:
 reportlab>=4.2,<6
 arabic-reshaper>=3.0,<4
 python-bidi>=0.6,<1
 pypdf>=5,<7
+pypdfium2>=4.28,<6
+# The TeX source also requires a local pdfLaTeX/XeLaTeX installation with:
+# geometry, booktabs, graphicx, amsmath, hyperref, caption, and float.

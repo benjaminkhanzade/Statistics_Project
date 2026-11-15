@@ -1,0 +1,268 @@
+{
+  "design": {
+    "unit": "one supplied row per unique NACCID",
+    "population": "age-65+ participants in the supplied linked NACC UDS/MRI clinical/research subset; not all older adults",
+    "baseline_or_temporal_alignment": "cannot establish baseline visit or contemporaneous UDS/MRI; supplied files lack visit identifiers/dates and MRI scan dates",
+    "UDS_processing": "processed/imputed file; imputation procedure and original missingness mask unavailable",
+    "status_codes": {
+      "1": "Normal cognition",
+      "2": "Impaired, not MCI",
+      "3": "MCI",
+      "4": "Dementia"
+    },
+    "moca_rule": "MOCATOTS accepted only in [0,30]; no rounding or clipping",
+    "volume_rule": "arithmetic mean of left/right entorhinal GVOL only when both values are positive",
+    "variance_convention": "empirical distribution variance with divisor n except pairwise covariance, which is sample covariance with divisor n-1"
+  },
+  "linkage": {
+    "UDS_rows": 1237,
+    "MRI_rows": 1237,
+    "unique_UDS_NACCID": 1237,
+    "unique_MRI_NACCID": 1237,
+    "matched_unique": 1237,
+    "unmatched_UDS": 0,
+    "unmatched_MRI": 0,
+    "duplicate_UDS_ID_rows": 0,
+    "duplicate_MRI_ID_rows": 0,
+    "NACCUDSD_disagreements": 0
+  },
+  "flow": [
+    {
+      "step": "UDS input records",
+      "n": 1237
+    },
+    {
+      "step": "MRI input records",
+      "n": 1237
+    },
+    {
+      "step": "matched unique participants",
+      "n": 1237
+    },
+    {
+      "step": "age eligible (NACCAGE >= 65)",
+      "n": 864
+    },
+    {
+      "step": "valid cognitive-status and bilateral-volume 2x2 subset",
+      "n": 864
+    },
+    {
+      "step": "valid MOCATOTS (0 to 30)",
+      "n": 856
+    },
+    {
+      "step": "valid bilateral volume",
+      "n": 864
+    },
+    {
+      "step": "paired valid MoCA and volume",
+      "n": 856
+    }
+  ],
+  "events": {
+    "A": "NACCUDSD in {3,4} (dataset-coded MCI or dementia; not a new diagnosis)",
+    "B": "bilateral entorhinal volume <= eligible-cohort median (1503.000000 mm^3)",
+    "median_mm3": 1503.0,
+    "median_rule": "linear interpolation (type-7 quantile); ties included in lower group",
+    "volume_median_n": 864,
+    "below_median_n": 431,
+    "equal_to_median_n": 2,
+    "at_or_below_median_n": 433
+  },
+  "contingency": {
+    "denominator": 864,
+    "rows": [
+      {
+        "A": "yes",
+        "B": "yes",
+        "count": 175
+      },
+      {
+        "A": "yes",
+        "B": "no",
+        "count": 116
+      },
+      {
+        "A": "no",
+        "B": "yes",
+        "count": 258
+      },
+      {
+        "A": "no",
+        "B": "no",
+        "count": 315
+      }
+    ],
+    "marginal_A": 291,
+    "marginal_not_A": 573,
+    "marginal_B": 433,
+    "marginal_not_B": 431
+  },
+  "probabilities": {
+    "P_A": {
+      "numerator": 291,
+      "denominator": 864,
+      "value": 0.3368055555555556
+    },
+    "P_B": {
+      "numerator": 433,
+      "denominator": 864,
+      "value": 0.5011574074074074
+    },
+    "P_A_and_B": {
+      "numerator": 175,
+      "denominator": 864,
+      "value": 0.2025462962962963
+    },
+    "P_A_given_B": {
+      "numerator": 175,
+      "denominator": 433,
+      "value": 0.40415704387990764
+    },
+    "P_A_given_not_B": {
+      "numerator": 116,
+      "denominator": 431,
+      "value": 0.2691415313225058
+    },
+    "P_B_given_A": {
+      "numerator": 175,
+      "denominator": 291,
+      "value": 0.6013745704467354
+    },
+    "P_A_times_P_B": 0.16879259902263377,
+    "independence_difference": 0.033753697273662536,
+    "bayes_rhs": 0.6013745704467354,
+    "bayes_identity_absolute_difference": 0.0
+  },
+  "groups": [
+    {
+      "group": "At or below volume median",
+      "volume_median_group": 1,
+      "n_group": 433,
+      "n_MCI_or_dementia": 175,
+      "probability": 0.40415704387990764,
+      "percent": 40.415704387990765,
+      "denominator_definition": "age 65+ with valid positive bilateral volume and valid NACCUDSD"
+    },
+    {
+      "group": "Above volume median",
+      "volume_median_group": 0,
+      "n_group": 431,
+      "n_MCI_or_dementia": 116,
+      "probability": 0.2691415313225058,
+      "percent": 26.91415313225058,
+      "denominator_definition": "age 65+ with valid positive bilateral volume and valid NACCUDSD"
+    }
+  ],
+  "bernoulli": {
+    "n": 864,
+    "pmf": [
+      {
+        "x": 0,
+        "label": "No MCI/dementia",
+        "count": 573,
+        "probability": 0.6631944444444444
+      },
+      {
+        "x": 1,
+        "label": "MCI or dementia",
+        "count": 291,
+        "probability": 0.3368055555555556
+      }
+    ],
+    "E_X": 0.3368055555555556,
+    "Var_X_empirical": 0.22336757330246915
+  },
+  "binomial": {
+    "n": 10,
+    "p": 0.3368055555555556,
+    "pmf": [
+      {
+        "k": 0,
+        "probability": 0.016459202743655834
+      },
+      {
+        "k": 1,
+        "probability": 0.08358862126359247
+      },
+      {
+        "k": 2,
+        "probability": 0.19102844597674407
+      },
+      {
+        "k": 3,
+        "probability": 0.2587051903629204
+      },
+      {
+        "k": 4,
+        "probability": 0.22992254483824998
+      },
+      {
+        "k": 5,
+        "probability": 0.14012033622603298
+      },
+      {
+        "k": 6,
+        "probability": 0.059300491334752195
+      },
+      {
+        "k": 7,
+        "probability": 0.0172091179041764
+      },
+      {
+        "k": 8,
+        "probability": 0.003277390909761344
+      },
+      {
+        "k": 9,
+        "probability": 0.0003698742504326358
+      },
+      {
+        "k": 10,
+        "probability": 1.878418968165742e-05
+      }
+    ],
+    "expected": 3.368055555555556,
+    "variance": 2.2336757330246915,
+    "assumptions": "fixed n=10; independent Bernoulli trials; same event probability p; each trial has two outcomes. Hypothetical independent draws, not sampling distinct finite-cohort participants without replacement."
+  },
+  "continuous": {
+    "MOCATOTS_points": {
+      "n": 856,
+      "mean": 24.133411214953274,
+      "variance_population_divisor_n": 16.074023877631234,
+      "median": 25.0,
+      "q1": 22.0,
+      "q3": 27.0,
+      "iqr": 5.0,
+      "min": 7.0,
+      "max": 30.0,
+      "fence_low": 14.5,
+      "fence_high": 34.5,
+      "outliers_1_5_iqr": 27,
+      "skewness_moment": -1.371032101884748
+    },
+    "bilateral_entorhinal_volume_mm3": {
+      "n": 864,
+      "mean": 1504.7303240740741,
+      "variance_population_divisor_n": 140177.41801563572,
+      "median": 1503.0,
+      "q1": 1280.375,
+      "q3": 1710.125,
+      "iqr": 429.75,
+      "min": 183.0,
+      "max": 4018.0,
+      "fence_low": 635.75,
+      "fence_high": 2354.75,
+      "outliers_1_5_iqr": 19,
+      "skewness_moment": 0.6544942443099222
+    }
+  },
+  "association": {
+    "n": 856,
+    "sample_covariance_MoCA_points_times_mm3": 307.5753522435372,
+    "Pearson_r": 0.2046796952214963,
+    "interpretation": "descriptive linear association; not causal"
+  }
+}

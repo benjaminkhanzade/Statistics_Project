@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="35.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#18324b">MCI or dementia by entorhinal-volume group</text>
+<line x1="115" y1="70.0" x2="850" y2="70.0" stroke="#e5eaf0"/>
+<text x="103.0" y="74.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#334155">100%</text>
+<line x1="115" y1="157.5" x2="850" y2="157.5" stroke="#e5eaf0"/>
+<text x="103.0" y="161.5" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#334155">75%</text>
+<line x1="115" y1="245.0" x2="850" y2="245.0" stroke="#e5eaf0"/>
+<text x="103.0" y="249.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#334155">50%</text>
+<line x1="115" y1="332.5" x2="850" y2="332.5" stroke="#e5eaf0"/>
+<text x="103.0" y="336.5" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#334155">25%</text>
+<line x1="115" y1="420.0" x2="850" y2="420.0" stroke="#e5eaf0"/>
+<text x="103.0" y="424.0" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#334155">0%</text>
+<rect x="218.75" y="278.5450346420323" width="160" height="141.4549653579677" fill="#247ba0"/>
+<text x="298.8" y="268.5" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#334155">40.4% (175/433)</text>
+<text x="298.8" y="447.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#334155">At or below volume median</text>
+<rect x="586.25" y="325.800464037123" width="160" height="94.19953596287704" fill="#247ba0"/>
+<text x="666.2" y="315.8" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#334155">26.9% (116/431)</text>
+<text x="666.2" y="447.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#334155">Above volume median</text>
+<text x="450.0" y="500.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#334155">Volume group</text>
+<text x="24.0" y="260.0" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#334155">Empirical probability</text>
+</svg>

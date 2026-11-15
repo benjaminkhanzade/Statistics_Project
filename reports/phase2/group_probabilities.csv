@@ -1,0 +1,3 @@
+group,volume_median_group,n_group,n_MCI_or_dementia,probability,percent,denominator_definition
+At or below volume median,1,433,175,0.40415704387990764,40.415704387990765,age 65+ with valid positive bilateral volume and valid NACCUDSD
+Above volume median,0,431,116,0.2691415313225058,26.91415313225058,age 65+ with valid positive bilateral volume and valid NACCUDSD
